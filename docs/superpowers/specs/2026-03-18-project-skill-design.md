@@ -95,6 +95,24 @@ last_updated: 2026-03-18
 
 The `nav` and `render` scripts currently operate on the `notes/` directory. Project notes at `projects/` are **independent** — navigation links within a project are managed by Claude directly (same link format, but no `nav` script automation). The `render` script can be pointed at a project directory with `--repo-id` if diagrams need rendering.
 
+## Naming and Numbering Convention
+
+Project notes follow the same `NN-topic-name/` numbering as codebase notes. When creating a new topic directory, scan existing directories and pick the next sequential number (e.g., if `01-goals/` and `02-architecture/` exist, the next is `03-whatever/`).
+
+Content from `--url` during brainstorm goes into the project's `research/` subdirectory (not numbered topics). The `research/` directory follows the same pattern as the research skill's notes.
+
+Diagrams are optional for project notes (unlike codebase notes where they're required). Add diagrams when the brainstorm discussion produces architecture or flow concepts worth visualizing.
+
+## Arguments Table
+
+| Subcommand | Arguments | Description |
+|------------|-----------|-------------|
+| `new` | `"project-name"` (required) | Create and scaffold a new project |
+| `brainstorm` | `"query"` (required), `--file PATH`, `--url URL`, `--project NAME` | Explore a topic and update project notes |
+| `ask` | `"question"` (required), `--project NAME` | Answer from project notes only |
+| `update` | `"prompt"` (required), `--project NAME` | Update notes based on prompt |
+| `question` | `--project NAME` | List open questions across the project |
+
 ## Subcommands
 
 The skill handles 5 subcommands via its first positional argument.
@@ -112,7 +130,10 @@ The skill handles 5 subcommands via its first positional argument.
 
 **Input:** Project name (required)
 
-**Edge case:** If a project with that name already exists, tell the user and suggest `/codebase-notes:project brainstorm` or `/codebase-notes:project update` instead. Do not overwrite.
+**Edge cases:**
+- If a project with that name already exists, tell the user and suggest `/codebase-notes:project brainstorm` or `/codebase-notes:project update` instead. Do not overwrite.
+- `new` intentionally has no `--file` or `--url` flags — it's a guided setup. To ingest external material, use `brainstorm` after creating the project.
+- If `--project NAME` refers to a project that doesn't exist, tell the user and suggest `new`.
 
 ### `brainstorm "query or topic" [--file path] [--url URL] [--project NAME]`
 
@@ -129,7 +150,7 @@ The skill handles 5 subcommands via its first positional argument.
    - Create new topic notes if the area isn't covered
    - Edit existing notes if adding to a known topic
 5. Add any new open questions discovered during brainstorming
-6. Rebuild navigation
+6. Update navigation links in project `index.md` (Knowledge Map, topic links) — managed by Claude directly, not the `nav` script
 
 **Input:** Query/topic (required), optional `--file` and `--url` flags (can combine)
 
@@ -154,7 +175,7 @@ The skill handles 5 subcommands via its first positional argument.
 2. Read existing notes
 3. Apply the update described in the prompt (edit existing notes, add new content, reorganize)
 4. Update `last_updated` in frontmatter
-5. Rebuild navigation
+5. Update navigation links in project `index.md` if structure changed — managed by Claude directly, not the `nav` script
 
 **Input:** Prompt describing what to change (required)
 
