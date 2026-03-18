@@ -46,6 +46,55 @@ status: brainstorming | active | paused | completed
 4. **Knowledge Map** — table of topics with status (same pattern as codebase notes)
 5. **Open Questions** — explicitly tracked questions with optional context
 
+## SKILL.md Frontmatter
+
+```yaml
+---
+name: project
+description: Brainstorm, plan, and track new projects within a codebase. Create project notes, explore ideas with files and URLs, ask questions against project knowledge, and track open questions.
+allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "WebFetch", "WebSearch"]
+---
+```
+
+The SKILL.md must include the standard shared context preamble referencing `references/shared-context.md` and explaining `<plugin_root>` resolution.
+
+## Step 0: Bootstrap and Resolve (all subcommands)
+
+Every subcommand starts with:
+
+1. Bootstrap scripts: `cd <plugin_root> && test -d .venv || uv sync`
+2. Resolve repo ID: `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id`
+3. Derive projects path: `~/.claude/repo_notes/<repo_id>/projects/`
+
+## Shared Arguments
+
+All subcommands except `new` accept `--project NAME` to specify which project to operate on. See "Project Resolution" section below.
+
+## Note Frontmatter
+
+Project notes use a **different frontmatter** from codebase notes. No `git_tracked_paths` (projects aren't tracking code changes). Instead:
+
+```yaml
+---
+project: my-project
+created: 2026-03-18
+last_updated: 2026-03-18
+status: brainstorming | active | paused | completed
+---
+```
+
+Topic notes within a project use minimal frontmatter:
+
+```yaml
+---
+last_updated: 2026-03-18
+---
+```
+
+## Script Compatibility
+
+The `nav` and `render` scripts currently operate on the `notes/` directory. Project notes at `projects/` are **independent** — navigation links within a project are managed by Claude directly (same link format, but no `nav` script automation). The `render` script can be pointed at a project directory with `--repo-id` if diagrams need rendering.
+
 ## Subcommands
 
 The skill handles 5 subcommands via its first positional argument.
@@ -63,7 +112,9 @@ The skill handles 5 subcommands via its first positional argument.
 
 **Input:** Project name (required)
 
-### `brainstorm "query or topic" [--file path] [--url URL]`
+**Edge case:** If a project with that name already exists, tell the user and suggest `/codebase-notes:project brainstorm` or `/codebase-notes:project update` instead. Do not overwrite.
+
+### `brainstorm "query or topic" [--file path] [--url URL] [--project NAME]`
 
 **Purpose:** Explore a topic and update project notes with findings.
 
@@ -82,7 +133,7 @@ The skill handles 5 subcommands via its first positional argument.
 
 **Input:** Query/topic (required), optional `--file` and `--url` flags (can combine)
 
-### `ask "question"`
+### `ask "question" [--project NAME]`
 
 **Purpose:** Answer a question purely from project notes.
 
@@ -94,7 +145,7 @@ The skill handles 5 subcommands via its first positional argument.
 
 **Input:** Question (required)
 
-### `update "prompt"`
+### `update "prompt" [--project NAME]`
 
 **Purpose:** Update project notes based on a prompt.
 
@@ -107,7 +158,7 @@ The skill handles 5 subcommands via its first positional argument.
 
 **Input:** Prompt describing what to change (required)
 
-### `question`
+### `question [--project NAME]`
 
 **Purpose:** List all open questions across the project.
 
@@ -121,7 +172,9 @@ The skill handles 5 subcommands via its first positional argument.
 4. Present consolidated list grouped by topic/source
 5. Offer to brainstorm any of them
 
-**Input:** None (optionally `--project` to specify which project)
+**Note:** Implicit question detection is best-effort. False positives are acceptable — the user can dismiss irrelevant items.
+
+**Input:** None required
 
 ## Project Resolution
 
