@@ -60,6 +60,10 @@ def main() -> int:
     stats_parser = subparsers.add_parser("stats", help="Display notes statistics")
     stats_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
+    # verify-diagrams
+    verify_parser = subparsers.add_parser("verify-diagrams", help="Check notes for missing diagrams")
+    verify_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -80,6 +84,7 @@ def main() -> int:
         "cron": "scripts.cron",
         "migrate": "scripts.migrate",
         "stats": "scripts.stats",
+        "verify-diagrams": "scripts.verify_diagrams",
     }
 
     module_name = dispatch.get(args.command)

@@ -191,11 +191,37 @@ status: brainstorming
      ---
      ```
 
-7. Add any new open questions discovered during brainstorming to the project's `index.md` under `## Open Questions`
-8. Update the Knowledge Map table in `index.md` if new topics were created or existing topics changed status
-9. Update `last_updated` in the project `index.md` frontmatter
+7. Run the diagram verifier to check for missing diagrams:
+   ```bash
+   export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+   ```
+   If any issues are reported for this project's notes, go back and create the missing diagrams before continuing.
+8. Add any new open questions discovered during brainstorming to the project's `index.md` under `## Open Questions`
+9. Update the Knowledge Map table in `index.md` if new topics were created or existing topics changed status
+10. Update `last_updated` in the project `index.md` frontmatter
 
-**Note:** Navigation links within a project are managed by Claude directly (same link format as codebase notes), not the `nav` script. Diagrams are optional — add them when the brainstorm produces architecture or flow concepts worth visualizing.
+**Note:** Navigation links within a project are managed by Claude directly (same link format as codebase notes), not the `nav` script.
+
+### Diagram Requirements
+
+Every brainstorm session that creates or updates topic notes MUST produce at least one Excalidraw diagram. Project brainstorming is inherently visual — architecture ideas, flow concepts, and design alternatives are best captured as diagrams.
+
+| Brainstorm Content | Diagram Type |
+|-------------------|-------------|
+| Architecture or system design | Layered architecture or component diagram |
+| User flow or workflow | Sequence diagram or state machine |
+| Decision with trade-offs | Comparison layout showing alternatives side-by-side |
+| Data model or schema | Entity relationship or hierarchy diagram |
+| Integration or API design | Data flow diagram showing connections and protocols |
+| Project roadmap or phases | Timeline diagram with milestones |
+
+After creating `.excalidraw` files, render them:
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render --repo-id <repo_id>
+```
+
+View each rendered PNG with the Read tool to verify quality. Embed with `![description](./filename.png)` and always include a text description below.
 
 ---
 

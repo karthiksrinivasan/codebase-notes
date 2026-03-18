@@ -18,7 +18,7 @@ When this shared context says `<plugin_root>`, substitute the actual resolved pa
 
 **Notes are a knowledge graph, not a document dump.** Each note is a node with links to parent, siblings, and children. The user navigates by choosing what to explore next — you present options, they pick, you go deeper.
 
-**Diagrams argue, text explains.** Every note gets at least one Excalidraw diagram showing architecture or data flow. Text supplements with tables, schemas, and key file references. Never use ASCII art for diagrams — always Excalidraw.
+**Diagrams argue, text explains.** Every note gets at least one Excalidraw diagram, and every major section within a note that describes relationships or flows gets its own diagram. A note with architecture, data flow, and integration sections needs three diagrams. Text supplements with tables, schemas, and key file references. Never use ASCII art for diagrams — always Excalidraw.
 
 **Text must stand alone.** Diagrams enhance but don't replace text. Every architecture section needs enough written description that a reader with broken images still understands the system. A diagram without a text summary below it is incomplete.
 
@@ -55,6 +55,7 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts &&
 | `cron --install` | Install cron auto-update schedule | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts cron --install` |
 | `cron --uninstall` | Remove cron auto-update schedule | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts cron --uninstall` |
 | `migrate` | Migrate v1 notes to v2 centralized location | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from docs/notes` |
+| `verify-diagrams` | Check notes for missing diagram coverage | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams` |
 
 ---
 
@@ -270,7 +271,19 @@ All links are **relative paths**.
 
 ## 11. Diagrams
 
-Every note needs at least one Excalidraw diagram. Notes covering multiple concepts should have multiple.
+**Every note needs at least one Excalidraw diagram. Every major section or concept within a note should have its own diagram.** A note about a service with architecture, data flow, and integration sections should have three diagrams — not one. Diagrams are not decoration; they are the primary way readers understand structure and flow. Text explains the nuance; diagrams argue the shape.
+
+### When to Create Diagrams
+
+Create a diagram for each of these within a note:
+- **Architecture section** — component layout, layers, boundaries
+- **Data flow section** — how data enters, transforms, exits
+- **Integration points** — connections to other systems, protocols
+- **State or lifecycle** — states an entity moves through
+- **Comparison or decision** — trade-offs shown side-by-side
+- **Process or workflow** — steps in a sequence
+
+**Rule of thumb:** If a section describes relationships between 2+ things, it needs a diagram. If you're writing "X connects to Y which sends to Z" in prose, that should be a diagram with a text description below.
 
 ### Creating Diagrams
 

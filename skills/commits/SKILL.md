@@ -61,7 +61,29 @@ Read the generated files and present a summary:
 - Most active code areas
 - Key changes and patterns
 
-## Step 3: Summarize (Optional)
+## Step 3: Create Diagrams
+
+Commit notes MUST include at least one Excalidraw diagram to visualize change patterns. Choose the most appropriate diagram type:
+
+| Commit Pattern | Diagram Type |
+|---------------|-------------|
+| Changes across multiple areas | Architecture diagram highlighting affected components |
+| Feature development over time | Timeline or sequence diagram showing progression |
+| Refactoring or migration | Before/after data flow comparison |
+| Multiple contributors to same area | Component diagram showing ownership/activity zones |
+| Cross-cutting changes | Dependency graph showing which systems were touched and why |
+
+For the overall commit summary, create a high-level diagram showing which parts of the codebase were most active and how changes relate to each other.
+
+Build diagrams section-by-section. After creating all `.excalidraw` files:
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+```
+
+View each rendered PNG with the Read tool to verify quality. Fix and re-render until clean. Embed in the relevant commit note with `![description](./filename.png)` and always include a text description below that stands alone without the image.
+
+## Step 4: Summarize (Optional)
 
 If the user wants a summary, write a high-level narrative covering:
 - Major features or changes
@@ -69,7 +91,17 @@ If the user wants a summary, write a high-level narrative covering:
 - Patterns (refactoring trends, new modules, etc.)
 - Areas that may need documentation updates
 
-## Step 4: Cross-Reference with Notes
+## Step 5: Verify Diagram Coverage
+
+**MANDATORY** — run the diagram verifier after creating commit notes:
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+```
+
+If any HIGH or MEDIUM issues are reported, go back and create the missing diagrams. Do not skip this step.
+
+## Step 6: Cross-Reference with Notes
 
 Check if heavily-modified code areas have stale notes:
 

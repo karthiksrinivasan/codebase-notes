@@ -80,7 +80,27 @@ Follow the RULES.md capture matrix. For each note:
 3. Prefer tables for structured data
 4. Include a Key Files table
 5. Add YAML frontmatter with `git_tracked_paths`
-6. Create at least one Excalidraw diagram
+6. Create at least one Excalidraw diagram per note — more for complex topics
+
+### Diagram Requirements
+
+Every note MUST include at least one diagram. Use the diagram type table from shared-context:
+
+| Note Content | Diagram Type |
+|-------------|-------------|
+| System overview or index | Hub-and-spoke or layered architecture |
+| Service, module, or component | Data flow showing request lifecycle or pipeline |
+| Workflow or process | State machine or sequence diagram |
+| Configuration or reference | Hierarchy tree or ecosystem map |
+| Integration between systems | Arrows showing connections, protocols, data formats |
+
+For notes covering multiple concepts, create multiple diagrams (one per concept). Build diagrams section-by-section to avoid token limits. After writing all notes, render and verify:
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+```
+
+View each rendered PNG with the Read tool to verify quality. Fix and re-render until clean. Every diagram MUST have a text description below it that stands alone without the image.
 
 ## Step 4: Update Parents and Navigation
 
@@ -92,6 +112,16 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts &&
 ```
 
 Update `00-overview.md` Knowledge Map.
+
+## Step 4.5: Verify Diagram Coverage
+
+**MANDATORY** — run the diagram verifier after writing notes:
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+```
+
+If any HIGH or MEDIUM issues are reported, go back and create the missing diagrams before presenting options to the user. Do not skip this step.
 
 ## Step 5: Present Options
 

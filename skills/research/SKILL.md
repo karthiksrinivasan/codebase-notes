@@ -116,6 +116,28 @@ How does this relate to our codebase? What can we learn or apply?
 
 Use web search to find relevant resources, then create multiple paper/article notes under the topic directory.
 
+## Step 3.5: Create Diagrams
+
+Every research note MUST include at least one Excalidraw diagram. Research notes benefit greatly from visual representation — readers grasp technical approaches and comparisons much faster with diagrams.
+
+| Research Content | Diagram Type |
+|-----------------|-------------|
+| Technical approach / architecture | Architecture diagram showing system components |
+| Algorithm or pipeline | Data flow diagram showing processing steps |
+| Comparison of approaches | Side-by-side comparison layout with key differences highlighted |
+| Concept or mental model | Concept map showing relationships between ideas |
+| Multiple papers on same topic | Landscape/positioning diagram showing how papers relate |
+
+For individual paper/article notes, diagram the paper's technical approach or architecture. For topic index notes with multiple papers, create an overview diagram showing the research landscape — how papers/articles relate to each other and to the project.
+
+Build diagrams section-by-section. After creating all `.excalidraw` files:
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+```
+
+View each rendered PNG with the Read tool to verify quality. Fix and re-render until clean. Embed in the note with `![description](./filename.png)` and always include a text description below that stands alone without the image.
+
 ## Step 4: Update Topic Index
 
 The topic's `index.md` should contain a Paper/Article Index table and Key Insights summary.
@@ -129,6 +151,16 @@ Update `research/index.md` with the new topic and paper counts.
 ```bash
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
 ```
+
+## Step 7: Verify Diagram Coverage
+
+**MANDATORY** — run the diagram verifier after writing research notes:
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+```
+
+If any HIGH or MEDIUM issues are reported, go back and create the missing diagrams. Do not skip this step.
 
 ## Grouping Principles
 

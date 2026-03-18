@@ -62,7 +62,7 @@ For each note being updated:
 3. Update the note in-place — prefer editing over rewriting
 4. Update the `git_tracked_paths` commit hashes in frontmatter
 5. Update `last_updated` date
-6. Update or re-create diagrams if architecture changed
+6. Check every section for diagram coverage — each section describing relationships or flows MUST have a diagram. Add missing diagrams, update stale ones.
 
 ## Step 4: Rebuild Navigation and Render
 
@@ -70,6 +70,16 @@ For each note being updated:
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
 ```
+
+## Step 4.5: Verify Diagram Coverage
+
+**MANDATORY** — run the diagram verifier after updating notes:
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+```
+
+If any HIGH or MEDIUM issues are reported for the updated notes, go back and create the missing diagrams before reporting to the user.
 
 ## Step 5: Report
 
