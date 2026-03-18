@@ -30,7 +30,7 @@ You are setting up or removing automatic cron-based updates for codebase notes.
 ## Install
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts cron --install --interval 6h
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts cron --install --interval 6h
 ```
 
 Adjust `--interval` based on user input (default: 6h).
@@ -52,7 +52,7 @@ When triggered, the auto-update process:
 ## Uninstall
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts cron --uninstall
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts cron --uninstall
 ```
 
 ## Monitoring
@@ -66,11 +66,11 @@ cat ~/.claude/repo_notes/cron.log
 Run a manual update to test:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts auto-update --all-repos
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts auto-update --all-repos
 ```
 
 Or for a single repo:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts auto-update
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts auto-update
 ```

@@ -32,7 +32,7 @@ You are creating or updating research notes — a curated knowledge base of exte
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
 Research notes live at: `~/.claude/repo_notes/<repo_id>/notes/research/`
@@ -127,7 +127,7 @@ Update `research/index.md` with the new topic and paper counts.
 ## Step 6: Rebuild Navigation
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
 ```
 
 ## Grouping Principles

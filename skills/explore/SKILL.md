@@ -31,7 +31,7 @@ You are exploring a topic in the codebase and writing structured notes.
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
@@ -43,7 +43,7 @@ Read `00-overview.md` to understand current coverage. Check if this topic alread
 If notes exist for this topic, read them first. Check staleness:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale
 ```
 
 If the topic's notes are FRESH, tell the user and ask what specifically they want to go deeper on.
@@ -87,8 +87,8 @@ Follow the RULES.md capture matrix. For each note:
 After writing notes:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
 ```
 
 Update `00-overview.md` Knowledge Map.

@@ -44,7 +44,7 @@ cd <plugin_root> && test -d .venv || uv sync
 2. **Resolve repo identity**:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
 Save this repo ID — it determines where notes are stored: `~/.claude/repo_notes/<repo_id>/`
@@ -52,7 +52,7 @@ Save this repo ID — it determines where notes are stored: `~/.claude/repo_note
 3. **Check for existing notes**:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale 2>/dev/null
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale 2>/dev/null
 ```
 
 If notes already exist, tell the user and show the staleness report. Ask if they want to:
@@ -65,13 +65,13 @@ If `--force` was NOT passed and notes exist, do NOT reinitialize. Instead, prese
 4. **Check for v1 notes** in the repo (`docs/notes/`, `notes/`, `docs/knowledge/`). If found, offer migration:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from <path>
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from <path>
 ```
 
 ## Step 1: Scaffold
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
 ```
 
 ## Step 2: Explore the Repository
@@ -100,11 +100,11 @@ Show the Knowledge Map as numbered options. Let the user choose what to explore 
 After creating diagrams, render them:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
 ```
 
 After writing notes, rebuild navigation:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
 ```

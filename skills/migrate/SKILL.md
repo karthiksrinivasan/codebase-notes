@@ -25,7 +25,7 @@ You are migrating existing codebase notes from the old in-repo location to the n
 ## Step 0: Resolve Repo Identity
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
 ## Step 1: Detect v1 Notes
@@ -42,7 +42,7 @@ If no v1 notes are found, tell the user and suggest `/codebase-notes:init` inste
 ## Step 2: Run Migration
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from <path>
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from <path>
 ```
 
 This will:
@@ -54,14 +54,14 @@ This will:
 ## Step 3: Scaffold Missing Structure
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
 ```
 
 ## Step 4: Rebuild Navigation
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
 ```
 
 ## Step 5: Report

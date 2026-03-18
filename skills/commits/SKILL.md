@@ -31,7 +31,7 @@ You are generating structured notes from git commit history.
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
 ## Step 1: Generate Commit Notes
@@ -39,7 +39,7 @@ export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts r
 Run the commits command with the provided arguments:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts commits --author "AUTHOR" --since "4w" --path ""
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts commits --author "AUTHOR" --since "4w" --path ""
 ```
 
 Adjust `--since` and `--path` based on user input.
@@ -74,7 +74,7 @@ If the user wants a summary, write a high-level narrative covering:
 Check if heavily-modified code areas have stale notes:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
 ```
 
 Flag notes that cover the same areas as recent commits.

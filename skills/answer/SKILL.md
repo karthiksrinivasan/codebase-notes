@@ -27,7 +27,7 @@ You are answering a question about the codebase using notes as the primary conte
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
@@ -78,7 +78,7 @@ After learning something new from code exploration that isn't in the notes:
 Then rebuild navigation:
 
 ```bash
-export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
 ```
 
 This keeps notes as a living cache of codebase understanding.

@@ -39,9 +39,34 @@ def _parse_remote_url(url: str) -> str:
     raise ValueError(f"Cannot parse git remote URL: {url}")
 
 
+def _resolve_cwd() -> str:
+    """Determine the repo working directory from env vars or os.getcwd().
+
+    Priority: REPO_ROOT > REPO_CWD > os.getcwd().
+    If REPO_CWD is set but REPO_ROOT is not, derive REPO_ROOT via git.
+    """
+    repo_root = os.environ.get("REPO_ROOT")
+    if repo_root:
+        return repo_root
+
+    repo_cwd = os.environ.get("REPO_CWD")
+    if repo_cwd:
+        # Derive git root from REPO_CWD so subdirectories resolve correctly
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                capture_output=True, text=True, check=True, cwd=repo_cwd,
+            )
+            return result.stdout.strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return repo_cwd
+
+    return os.getcwd()
+
+
 def resolve_repo_id(cwd: str | None = None) -> str:
     if cwd is None:
-        cwd = os.environ.get("REPO_CWD", os.getcwd())
+        cwd = _resolve_cwd()
     try:
         result = subprocess.run(
             ["git", "remote", "get-url", "origin"],

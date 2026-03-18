@@ -73,7 +73,8 @@ def scaffold_repo(repo_id: str, clone_path: str) -> None:
 
 def run(args) -> int:
     try:
-        clone_path = os.environ.get("REPO_CWD", os.getcwd())
+        from scripts.repo_id import _resolve_cwd
+        clone_path = _resolve_cwd()
         repo_id = resolve_repo_id(cwd=clone_path)
         scaffold_repo(repo_id, clone_path)
         print(f"Scaffolded: {REPO_NOTES_BASE / repo_id}")

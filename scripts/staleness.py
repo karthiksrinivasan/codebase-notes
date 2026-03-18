@@ -302,8 +302,8 @@ def run(args) -> int:
                 return 0
 
         # Find a valid clone path
-        import os
-        repo_root = Path(os.environ.get("REPO_CWD", os.getcwd()))
+        from scripts.repo_id import _resolve_cwd
+        repo_root = Path(_resolve_cwd())
 
         reports = check_all_notes(notes_dir, repo_root)
         save_cache(repo_dir, reports)
