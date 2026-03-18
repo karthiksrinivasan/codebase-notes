@@ -64,6 +64,12 @@ def main() -> int:
     verify_parser = subparsers.add_parser("verify-diagrams", help="Check notes for missing diagrams")
     verify_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
+    # context-index
+    ctx_parser = subparsers.add_parser("context-index", help="Generate compact notes index for context priming")
+    ctx_parser.add_argument("--repo-id", help="Repo ID (auto-detected if omitted)")
+    ctx_parser.add_argument("--filter-stdin", action="store_true", help="Filter by PostToolUse stdin input")
+    ctx_parser.add_argument("--json-envelope", action="store_true", help="Wrap output in hook JSON format")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -85,6 +91,7 @@ def main() -> int:
         "migrate": "scripts.migrate",
         "stats": "scripts.stats",
         "verify-diagrams": "scripts.verify_diagrams",
+        "context-index": "scripts.context_index",
     }
 
     module_name = dispatch.get(args.command)

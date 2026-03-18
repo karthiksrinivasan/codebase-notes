@@ -131,7 +131,25 @@ After migration, re-run Step 0.3 to load the migrated notes.
 
 ## 4. Context Priming Protocol
 
-Whenever you need to understand part of the codebase — whether for exploration, answering questions, debugging, or feature work — follow this order:
+Whenever you need to understand part of the codebase — whether for exploration, answering questions, debugging, or feature work — follow this order. If auto-priming is active (see 4.0), you already have the navigation map and can skip straight to reading specific notes.
+
+### 4.0 Auto-Priming (Hook-Based)
+
+For repos with codebase notes, a SessionStart hook automatically injects a compact index of all notes at conversation start. This index includes:
+
+- Every note across all directories (notes, research, projects, commits)
+- Note titles and file paths
+- Staleness status (FRESH/STALE) from cached data
+- Tracked source paths for each note
+
+**You do not need to read `00-overview.md` manually if the auto-priming index is present in your context.** The index gives you a complete navigation map. When a topic becomes relevant:
+
+1. Read the topic's `index.md` first to see subtopics
+2. Read the specific subtopic note you need
+
+The index is automatically refreshed when notes are created or updated during the session via a PostToolUse hook.
+
+If a note shows as STALE in the index and is relevant to the current conversation, mention it to the user and offer to update it.
 
 ### 4.1 Read Notes First (cheap, pre-digested context)
 

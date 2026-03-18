@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+EVENT="${1:-}"
+
+if [ -z "$EVENT" ]; then
+  exit 0
+fi
+
+# Resolve repo root — hooks may run from any cwd
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+export REPO_ROOT
+
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "${PLUGIN_ROOT}/scripts"
+
+if [ "$EVENT" = "session-start" ]; then
+  uv run python -m scripts context-index --json-envelope 2>/dev/null || true
+elif [ "$EVENT" = "post-tool-use" ]; then
+  uv run python -m scripts context-index --filter-stdin --json-envelope 2>/dev/null || true
+fi
