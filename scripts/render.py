@@ -237,6 +237,10 @@ def _draw_text(
     font = load_font(font_family, font_size)
     color = _parse_color(elem.get("strokeColor")) or "#000000"
 
+    # Split into lines and compute line height upfront (needed for all paths)
+    lines = text.split("\n")
+    line_height = font_size * 1.2
+
     container_id = elem.get("containerId")
     if container_id and container_id in elements_by_id:
         container = elements_by_id[container_id]
@@ -244,26 +248,37 @@ def _draw_text(
         cy = container["y"] - oy
         cw = container["width"]
         ch = container["height"]
-        # Measure text
-        bbox = font.getbbox(text)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
-        # Center in container
+        # Measure multiline text correctly: widest line width, total height from line count
+        tw = 0
+        for line in lines:
+            if line:
+                line_bbox = font.getbbox(line)
+                tw = max(tw, line_bbox[2] - line_bbox[0])
+        th = len(lines) * line_height
+        # Center the text block in container
         tx = cx + (cw - tw) / 2
         ty = cy + (ch - th) / 2
     else:
         tx = elem["x"] - ox
         ty = elem["y"] - oy
 
-    # Handle multiline
-    lines = text.split("\n")
-    line_height = font_size * 1.2
+    # Render each line
+    text_align = elem.get("textAlign", "left")
     for i, line in enumerate(lines):
-        if elem.get("textAlign") == "center" and not container_id:
-            bbox = font.getbbox(line)
-            lw = bbox[2] - bbox[0]
-            elem_w = elem.get("width", lw)
-            lx = tx + (elem_w - lw) / 2
+        if text_align == "center":
+            if container_id and container_id in elements_by_id:
+                # Center each line within the measured text block width
+                if line:
+                    line_bbox = font.getbbox(line)
+                    lw = line_bbox[2] - line_bbox[0]
+                else:
+                    lw = 0
+                lx = tx + (tw - lw) / 2
+            else:
+                bbox = font.getbbox(line) if line else (0, 0, 0, 0)
+                lw = bbox[2] - bbox[0]
+                elem_w = elem.get("width", lw)
+                lx = tx + (elem_w - lw) / 2
         else:
             lx = tx
         draw.text((lx, ty + i * line_height), line, fill=color, font=font)
