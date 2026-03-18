@@ -1,0 +1,5 @@
+{
+  "name": "codebase-notes",
+  "description": "Generate, explore, and maintain a hierarchical knowledge base of structured notes for any codebase",
+  "version": "2.0.0"
+}
