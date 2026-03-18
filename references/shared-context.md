@@ -33,26 +33,26 @@ When this shared context says `<plugin_root>`, substitute the actual resolved pa
 All scripts are invoked with the same pattern. Set `REPO_CWD` to the user's repo, then `cd` into the scripts directory and run via `uv`:
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts <command> [args]
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts <command> [args]
 ```
 
 ### Command Reference
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `repo-id` | Print the repo ID for the current git repo | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id` |
-| `scaffold` | Create notes directory structure for current repo | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts scaffold` |
-| `stale` | Check all notes for staleness | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale` |
-| `stale --all-repos` | Check staleness across all repos | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --all-repos` |
-| `stale --no-cache` | Force fresh staleness check (skip cache) | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache` |
-| `nav` | Rebuild all navigation links in notes | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav` |
-| `render` | Render all .excalidraw files to .png | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render` |
-| `commits` | Generate commit history notes | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts commits --author "Name"` |
-| `auto-update` | Run staleness check + Claude update | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts auto-update` |
-| `auto-update --all-repos` | Auto-update all repos | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts auto-update --all-repos` |
-| `cron --install` | Install cron auto-update schedule | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts cron --install` |
-| `cron --uninstall` | Remove cron auto-update schedule | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts cron --uninstall` |
-| `migrate` | Migrate v1 notes to v2 centralized location | `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from docs/notes` |
+| `repo-id` | Print the repo ID for the current git repo | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id` |
+| `scaffold` | Create notes directory structure for current repo | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts scaffold` |
+| `stale` | Check all notes for staleness | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale` |
+| `stale --all-repos` | Check staleness across all repos | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --all-repos` |
+| `stale --no-cache` | Force fresh staleness check (skip cache) | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache` |
+| `nav` | Rebuild all navigation links in notes | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav` |
+| `render` | Render all .excalidraw files to .png | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render` |
+| `commits` | Generate commit history notes | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts commits --author "Name"` |
+| `auto-update` | Run staleness check + Claude update | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts auto-update` |
+| `auto-update --all-repos` | Auto-update all repos | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts auto-update --all-repos` |
+| `cron --install` | Install cron auto-update schedule | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts cron --install` |
+| `cron --uninstall` | Remove cron auto-update schedule | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts cron --uninstall` |
+| `migrate` | Migrate v1 notes to v2 centralized location | `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from docs/notes` |
 
 ---
 
@@ -75,7 +75,7 @@ If `.venv` doesn't exist, `uv sync` will create it and install all dependencies 
 Run the `repo-id` command to determine where notes are stored for this repo:
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
 This prints the repo ID (e.g., `anthropics--claude-code`). Notes for this repo live at:
@@ -97,7 +97,7 @@ After resolving the notes path, check if notes already exist:
 **If the notes directory has content (contains .md files):** Run the staleness checker to see what's fresh and what needs updating:
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale
 ```
 
 This outputs a report showing FRESH, STALE, or NO_TRACKING for each note. Present the results to the user along with the Knowledge Map from `00-overview.md`. Ask what they want to do: explore more, update stale notes, add detail, etc.
@@ -105,7 +105,7 @@ This outputs a report showing FRESH, STALE, or NO_TRACKING for each note. Presen
 **If the notes directory is empty or doesn't exist:** Run scaffold to create the initial structure:
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
 ```
 
 This creates the notes directory with a skeleton `00-overview.md` and a `RULES.md` copied from the skill's template. Then proceed to Phase 1.
@@ -117,7 +117,7 @@ If no centralized notes exist, check whether this repo has v1 notes (stored insi
 **If v1 notes are found**, offer to migrate them:
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from docs/notes
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from docs/notes
 ```
 
 The migration copies all `.md`, `.excalidraw`, and `.png` files to the centralized location, preserving directory structure. It reports any broken links that pointed outside the notes directory. The original files are NOT deleted — the user can remove them manually.
@@ -277,7 +277,7 @@ Every note needs at least one Excalidraw diagram. Notes covering multiple concep
 3. Render all diagrams:
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
 ```
 
 4. View the PNG with the Read tool to verify it looks correct
@@ -335,7 +335,7 @@ After all complete, render everything in one pass:
 ```
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
 ```
 
 Sub-agents creating diagrams may lack bash permissions — always render centrally after they complete.
@@ -403,7 +403,7 @@ After running the staleness checker, update the Knowledge Map to reflect current
 ### Migration Command
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from docs/notes
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from docs/notes
 ```
 
 This will:
@@ -416,9 +416,9 @@ This will:
 
 If the automated migration doesn't handle your case:
 
-1. Run `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id` to get the repo ID
-2. Run `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts scaffold` to create the target structure
+1. Run `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id` to get the repo ID
+2. Run `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts scaffold` to create the target structure
 3. Manually copy your notes to `~/.claude/repo_notes/<repo_id>/notes/`
 4. Fix any relative links that now point to the wrong location
-5. Run `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav` to rebuild navigation
-6. Run `REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render` to re-render diagrams
+5. Run `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav` to rebuild navigation
+6. Run `export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render` to re-render diagrams

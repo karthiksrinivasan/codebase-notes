@@ -29,7 +29,7 @@ You are adding or updating Excalidraw diagrams for codebase notes.
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
@@ -71,7 +71,7 @@ Name the file: `<note-name>-<type>.excalidraw` (e.g., `01-api-architecture.excal
 ## Step 4: Render
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
 ```
 
 ## Step 5: View and Fix

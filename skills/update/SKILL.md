@@ -29,7 +29,7 @@ You are updating codebase notes that have become stale due to code changes.
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
@@ -37,7 +37,7 @@ Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
 ## Step 1: Check Staleness
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
 ```
 
 This shows which notes are FRESH, STALE, or NO_TRACKING, along with the specific files that changed.
@@ -67,8 +67,8 @@ For each note being updated:
 ## Step 4: Rebuild Navigation and Render
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts nav
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts render
 ```
 
 ## Step 5: Report

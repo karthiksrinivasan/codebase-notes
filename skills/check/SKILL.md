@@ -31,7 +31,7 @@ You are checking the status and freshness of codebase notes.
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
@@ -45,13 +45,13 @@ Read ~/.claude/repo_notes/<repo_id>/notes/00-overview.md
 ## Step 2: Run Staleness Check
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
 ```
 
 If `--all-repos` was specified:
 
 ```bash
-REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --all-repos --no-cache
+export REPO_CWD=$(pwd) && cd <plugin_root>/scripts && uv run python -m scripts stale --all-repos --no-cache
 ```
 
 ## Step 3: Present Knowledge Map
