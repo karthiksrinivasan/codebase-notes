@@ -1,9 +1,25 @@
 ---
 description: Explore a codebase topic and write structured notes. Dispatches an Explore agent, writes notes following the capture matrix, updates navigation, and presents options for deeper exploration.
-argument-hint: "TOPIC [--deep] [--parallel TOPIC2 TOPIC3...]"
+argument-hint: "TOPIC [--path src/api/] [--deep] [--parallel TOPIC2 TOPIC3...]"
 ---
 
 # Explore Topic
+
+## Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `TOPIC` | **Yes** | The topic to explore (e.g., "authentication", "API layer", "data pipeline") |
+| `--path PATH` | No | Specific source code path to focus on (e.g., `src/api/`, `lib/auth/`) |
+| `--deep` | No | Do a deeper exploration (reads more files, traces more paths) |
+| `--parallel TOPICS...` | No | Explore multiple topics simultaneously |
+
+**Examples:**
+- `/codebase-notes:explore authentication`
+- `/codebase-notes:explore "API layer" --path src/api/`
+- `/codebase-notes:explore --parallel auth models config`
+
+---
 
 You are exploring a topic in the codebase and writing structured notes.
 
@@ -31,7 +47,7 @@ If the topic's notes are FRESH, tell the user and ask what specifically they wan
 
 ## Step 2: Dispatch Explore Agent
 
-For the topic, dispatch an Explore agent with a detailed prompt:
+For the topic, dispatch an Explore agent with a detailed prompt. If `--path` was specified, scope the exploration to that path. If `--deep` was specified, increase thoroughness (read more files, trace more call paths, explore edge cases).
 
 ```
 Very thoroughly explore <path>. I need a deep understanding of:

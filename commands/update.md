@@ -1,9 +1,23 @@
 ---
 description: Update stale codebase notes by detecting changes since last update, re-exploring affected code, and refreshing note content in-place.
-argument-hint: "[TOPIC] [--all]"
+argument-hint: "[TOPIC] [--all] [--force]"
 ---
 
 # Update Stale Notes
+
+## Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `TOPIC` | No | Specific topic to update. If omitted, shows all stale notes and asks which to update. |
+| `--all` | No | Update all stale notes without prompting |
+| `--force` | No | Re-explore even for fresh notes |
+
+**Examples:**
+- `/codebase-notes:update authentication` — Update notes for the authentication topic
+- `/codebase-notes:update --all` — Update all stale notes without prompting
+
+---
 
 You are updating codebase notes that have become stale due to code changes.
 
@@ -25,7 +39,7 @@ cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts stale --n
 
 This shows which notes are FRESH, STALE, or NO_TRACKING, along with the specific files that changed.
 
-If a specific TOPIC was provided, focus on that topic's notes only. If `--all` was passed, update all stale notes.
+If a specific `TOPIC` was provided, focus on that topic's notes only. If `--all` was passed, update all stale notes. If `--force` was passed, re-explore and update even notes that are currently FRESH.
 
 ## Step 2: Prioritize Updates
 

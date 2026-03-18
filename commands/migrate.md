@@ -5,6 +5,18 @@ argument-hint: "[--from PATH]"
 
 # Migrate v1 Notes to v2
 
+## Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--from PATH` | No | Path to v1 notes directory. Auto-detected if omitted (checks `docs/notes/`, `notes/`, `docs/knowledge/`). |
+
+**Examples:**
+- `/codebase-notes:migrate` — Auto-detect and migrate v1 notes
+- `/codebase-notes:migrate --from docs/notes/` — Migrate from a specific path
+
+---
+
 You are migrating existing codebase notes from the old in-repo location to the new centralized storage.
 
 ## Step 0: Resolve Repo Identity

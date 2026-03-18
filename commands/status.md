@@ -1,8 +1,22 @@
 ---
 description: Show the full knowledge map with staleness status for all notes. Quick overview of what's documented, what's stale, and what's missing.
+argument-hint: "[--all-repos] [--verbose]"
 ---
 
 # Notes Status / Knowledge Map
+
+## Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--all-repos` | No | Show status for all repos, not just the current one |
+| `--verbose` | No | Show changed files for stale notes |
+
+**Examples:**
+- `/codebase-notes:status` — Show knowledge map for the current repo
+- `/codebase-notes:status --verbose` — Include changed file details for stale notes
+
+---
 
 You are showing the current status of all codebase notes.
 
@@ -28,9 +42,15 @@ Read ~/.claude/repo_notes/<repo_id>/notes/00-overview.md
 cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts stale --no-cache
 ```
 
+If `--all-repos` was specified, check all repos:
+
+```bash
+cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts stale --all-repos --no-cache
+```
+
 ## Step 3: Present Knowledge Map
 
-Combine the overview's topic list with staleness data to present:
+Combine the overview's topic list with staleness data to present. If `--verbose` was specified, include the list of changed files for each stale note:
 
 ```
 Knowledge Map for <repo>

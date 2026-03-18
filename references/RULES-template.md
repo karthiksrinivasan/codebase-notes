@@ -12,6 +12,8 @@ Notes are stored centrally at `~/.claude/repo_notes/<repo_id>/notes/`.
 - **Numbering**: folders use `NN-topic-name/`, files use `NN-subtopic.md` (01, 02, 03...).
 - **Centralized storage**: all notes live under `~/.claude/repo_notes/<repo_id>/notes/`. Do not store notes inside the repository itself.
 
+- **Research directory**: `research/` holds notes on external resources — papers, articles, blog posts, competitive analysis. Organized by topic and sub-topic, separate from code exploration notes.
+
 Example tree:
 
 ```
@@ -25,6 +27,17 @@ Example tree:
     index.md
     01-ingestion.md
     02-transformations.md
+  research/
+    index.md
+    01-topic-name/
+      index.md
+      01-paper-or-article.md
+      02-paper-or-article.md
+    02-another-topic/
+      index.md
+      01-sub-group/
+        index.md
+        01-paper.md
 ```
 
 ## Navigation
@@ -393,3 +406,70 @@ cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts render
 ```bash
 cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts stale
 ```
+
+## Research Notes
+
+Research notes capture knowledge from external resources — papers, articles, blog posts, tutorials, competitive analysis. They live in a dedicated `research/` subdirectory.
+
+### Structure
+
+```
+research/
+├── index.md                        # Research overview — all topics
+├── 01-{broad-topic}/
+│   ├── index.md                    # Topic overview + paper index table
+│   ├── 01-{paper-or-article}.md    # Individual paper/article note
+│   ├── 02-{paper-or-article}.md
+│   └── 01-{sub-group}/            # Optional sub-grouping for large topics
+│       ├── index.md
+│       └── 01-{paper}.md
+```
+
+### Grouping Principles
+
+- **Top-level folders**: Broad research domains (e.g., `01-autonomous-labs`, `02-ml-architectures`)
+- **Sub-groups**: When a topic has >5 papers, split by theme (e.g., `01-hardware-automation/`, `02-software-orchestration/`)
+- **Individual notes**: One per paper, article, or resource
+
+### Research Paper Template
+
+```yaml
+---
+type: research-paper
+source_url: https://...
+relevance: foundational|competitive|adjacent|overview
+date_added: YYYY-MM-DD
+---
+```
+
+| Field | Value |
+|-------|-------|
+| **Authors** | Names (Affiliations) |
+| **Year** | YYYY |
+| **Source** | Journal/Blog/Conference |
+| **URL** | link |
+| **Relevance** | Why this matters to the project |
+
+Required sections:
+1. **Core Contribution** — one paragraph on the key insight
+2. **Technical Approach** — methods, architecture, algorithms
+3. **Key Results** — bullet points of important findings
+4. **Project Context** — how this relates to our codebase, what we can learn
+
+### Topic Index Template
+
+Each topic's `index.md` should have:
+- `type: research-overview` in frontmatter
+- Overview paragraph
+- Paper/Article Index table (columns: #, Title, Year, Theme, Relevance)
+- Key cross-cutting insights
+
+### What Makes Good Research Notes
+
+**Good:** Maps findings back to the project — "A-Lab uses robotic powder dispensing; our Mosaic module handles equivalent automation"
+
+**Bad:** Summarizes the paper without connecting to the project — "A-Lab synthesized 41 compounds"
+
+**Good:** Extracts actionable technical details — specific architectures, algorithms, configuration choices
+
+**Bad:** Generic summary that could come from reading the abstract

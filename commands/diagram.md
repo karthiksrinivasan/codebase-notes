@@ -1,9 +1,23 @@
 ---
 description: Add or update Excalidraw diagrams for codebase notes. Creates architecture, data flow, or state machine diagrams and renders them to PNG.
-argument-hint: "NOTE_PATH [--type architecture|dataflow|state|sequence]"
+argument-hint: "[NOTE] [--type TYPE] [--all-missing]"
 ---
 
 # Add/Update Diagrams
+
+## Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `NOTE` | No | Path to the specific note to add a diagram to (e.g., `01-api/index.md`) |
+| `--type TYPE` | No | Diagram type: `architecture`, `dataflow`, `state`, `sequence`, `hierarchy` |
+| `--all-missing` | No | Find all notes without diagrams and create them |
+
+**Examples:**
+- `/codebase-notes:diagram 01-api/index.md --type architecture`
+- `/codebase-notes:diagram --all-missing`
+
+---
 
 You are adding or updating Excalidraw diagrams for codebase notes.
 
@@ -24,7 +38,7 @@ Read the note that needs a diagram. Understand:
 - What relationships and flows exist
 - What would benefit most from visual representation
 
-If no specific note was given, check which notes lack diagrams.
+If no specific `NOTE` was given, check which notes lack diagrams. If `--all-missing` was specified, find all notes without diagrams and create them in batch.
 
 ## Step 2: Determine Diagram Type
 

@@ -1,9 +1,25 @@
 ---
 description: Explore recent commit history and generate structured commit notes grouped by author and code area. Useful for understanding what changed recently, onboarding, or preparing release notes.
-argument-hint: "--author AUTHOR [--since TIMERANGE] [--path PATH]"
+argument-hint: "[--author AUTHOR] [--since TIMERANGE] [--path PATH] [--topic TOPIC]"
 ---
 
 # Explore Commit History
+
+## Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--author AUTHOR` | No | Author name or email to filter commits. If omitted, lists available authors and asks. |
+| `--since TIMERANGE` | No | Time range (default: `4w`). Examples: `1w`, `2m`, `6m` |
+| `--path PATH` | No | Path filter for commits (e.g., `src/api/`) |
+| `--topic TOPIC` | No | Analyze commits related to a specific implementation area |
+
+**Examples:**
+- `/codebase-notes:commit-explore --author "Jane" --since 2w`
+- `/codebase-notes:commit-explore --topic "authentication changes"`
+- `/codebase-notes:commit-explore --path src/models/`
+
+---
 
 You are generating structured notes from git commit history.
 
@@ -25,9 +41,16 @@ cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts commits -
 
 Adjust `--since` (default: 4w) and `--path` based on user input.
 
-If no `--author` is specified, ask the user. Common patterns:
+If no `--author` is specified, list available authors and let the user choose:
+
+```bash
+git log --format='%an' --since=4w | sort -u
+```
+
+If `--topic` was specified, filter and analyze commits related to that implementation area — look for commits touching relevant files and directories, and summarize the evolution of that topic over the time range.
+
+Common `--author` patterns:
 - Specific person: `--author "Jane Doe"` or `--author "jane@example.com"`
-- Everyone: run `git log --format='%an' --since=4w | sort -u` first to list authors
 
 ## Step 2: Review Generated Notes
 

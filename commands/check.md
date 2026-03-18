@@ -1,9 +1,23 @@
 ---
 description: Check the staleness status of all codebase notes, showing which notes are fresh, stale, or untracked. Presents a knowledge map with actionable next steps.
-argument-hint: "[--all-repos] [--no-cache]"
+argument-hint: "[--all-repos] [--no-cache] [--json]"
 ---
 
 # Check Notes Staleness
+
+## Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--all-repos` | No | Check all repos, not just the current one |
+| `--no-cache` | No | Skip the staleness cache (default: uses 10-min cache) |
+| `--json` | No | Output as JSON instead of table |
+
+**Examples:**
+- `/codebase-notes:check` — Check staleness of notes for the current repo
+- `/codebase-notes:check --all-repos` — Check staleness across all repos
+
+---
 
 You are checking the freshness of codebase notes.
 
@@ -29,7 +43,7 @@ cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts stale --a
 
 ## Step 2: Present Results
 
-Format the staleness report as a clear Knowledge Map table:
+If `--json` was specified, output the staleness data as a JSON object instead of a table. Otherwise, format the staleness report as a clear Knowledge Map table:
 
 | Note | Status | Changed Files | Last Updated |
 |------|--------|---------------|--------------|

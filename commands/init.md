@@ -5,6 +5,20 @@ argument-hint: "[--force]"
 
 # Initialize Codebase Notes
 
+## Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--force` | No | Reinitialize even if notes already exist. Destroys existing notes and starts fresh. |
+
+No positional arguments needed.
+
+**Examples:**
+- `/codebase-notes:init` — Initialize notes for the current repo
+- `/codebase-notes:init --force` — Reinitialize, replacing any existing notes
+
+---
+
 You are initializing codebase notes for the current repository. Follow these steps exactly.
 
 ## Step 0: Bootstrap and Resolve

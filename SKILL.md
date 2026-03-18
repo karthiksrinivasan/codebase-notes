@@ -701,6 +701,58 @@ If the automated migration doesn't handle your case:
 | "What changed recently?" | Run `commits --author "Name" --since 4w` -> summarize results |
 | "Keep notes up to date automatically" | Run `cron --install` -> explain what it does |
 | "Migrate my old notes" | Run `migrate --from <path>` -> verify results -> clean up broken links |
+| "Research topic X" / "Find papers on Y" | Step 0 -> check research/ dir -> web search/fetch -> create research notes grouped by topic |
+| "Summarize this paper/URL" | Step 0 -> fetch content -> create research note with project context mapping |
 | _(any task needing codebase context)_ | Step 0 -> read `00-overview.md` + relevant topic notes -> then code |
 | "Fix bug in X" / "Add feature to Y" | Step 0 -> read notes on X/Y for context -> work on code -> update notes with new findings |
 | "How does X work?" | Step 0 -> read notes on X -> answer from notes -> if insufficient, explore code and update notes |
+
+## 16. Research Notes
+
+Research notes capture knowledge from **external resources** — papers, articles, blog posts, competitive analysis, tutorials — organized by topic. They live in `~/.claude/repo_notes/<repo_id>/notes/research/`.
+
+### Structure
+
+```
+research/
+├── index.md                        # Research overview — all topics with paper counts
+├── 01-{broad-topic}/
+│   ├── index.md                    # Topic overview + paper/article index table
+│   ├── 01-{paper-or-article}.md    # Individual resource note
+│   └── 01-{sub-group}/            # Sub-grouping for large topics (>5 papers)
+│       ├── index.md
+│       └── 01-{paper}.md
+```
+
+### When to Create Research Notes
+
+- User asks to research a topic or technology
+- User provides URLs to papers/articles to summarize
+- Competitive analysis is needed
+- Understanding foundational techniques that inform the codebase
+
+### Paper/Article Note Format
+
+Each research note uses frontmatter:
+
+```yaml
+---
+type: research-paper
+source_url: https://...
+relevance: foundational|competitive|adjacent|overview
+date_added: YYYY-MM-DD
+---
+```
+
+Required sections: Core Contribution, Technical Approach, Key Results, **Project Context** (how it maps to our codebase).
+
+### Topic Grouping
+
+Group by broad domain first, sub-group by theme when topics grow large. The topic `index.md` contains a paper index table and cross-cutting insights. See RULES.md "Research Notes" section for full template.
+
+### Invoking Research
+
+```bash
+# Use the research subcommand
+/codebase-notes:research "autonomous labs" --source https://example.com/paper
+```

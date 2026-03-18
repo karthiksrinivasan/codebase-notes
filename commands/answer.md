@@ -5,6 +5,18 @@ argument-hint: "QUESTION"
 
 # Answer from Notes
 
+## Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `QUESTION` | **Yes** | The question about the codebase to answer |
+
+**Examples:**
+- `/codebase-notes:answer "How does authentication work?"`
+- `/codebase-notes:answer "What database is used and how is it configured?"`
+
+---
+
 You are answering a question about the codebase using notes as the primary context source.
 
 ## Step 0: Resolve Notes Path
