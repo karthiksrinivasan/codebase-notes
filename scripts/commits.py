@@ -371,12 +371,16 @@ def run_commits_command(
         if author in by_author:
             by_author = {author: by_author[author]}
         else:
-            # Try case-insensitive match
+            # Try case-insensitive exact match
             matched = {k: v for k, v in by_author.items() if k.lower() == author.lower()}
+            if not matched:
+                # Try substring match
+                matched = {k: v for k, v in by_author.items() if author.lower() in k.lower()}
             if matched:
                 by_author = matched
             else:
                 print(f"No commits found for author: {author}")
+                print(f"Available authors: {', '.join(sorted(by_author.keys()))}")
                 return
 
     # Compute date range
