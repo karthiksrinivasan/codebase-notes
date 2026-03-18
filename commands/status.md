@@ -1,6 +1,7 @@
 ---
 description: Show the full knowledge map with staleness status for all notes. Quick overview of what's documented, what's stale, and what's missing.
 argument-hint: "[--all-repos] [--verbose]"
+allowed-tools: ["Read", "Bash(cd ~/.claude/*)", "Bash(uv run*)", "Glob"]
 ---
 
 # Notes Status / Knowledge Map

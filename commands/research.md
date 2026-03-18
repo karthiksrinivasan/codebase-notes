@@ -1,6 +1,7 @@
 ---
 description: Conduct and document research on external topics — papers, articles, blog posts, tutorials, and web resources. Research notes are organized by topic and sub-topic under the research/ directory, separate from code exploration notes. Use for competitive analysis, technical deep-dives, literature reviews, or learning about technologies relevant to the project.
 argument-hint: "TOPIC [--url URL1 URL2...] [--paper \"TITLE\"] [--category CATEGORY] [--search]"
+allowed-tools: ["Read", "Write", "Edit", "Bash(cd ~/.claude/*)", "Bash(uv run*)", "Bash(git *)", "Bash(find *)", "Glob", "Grep", "Agent", "WebFetch", "WebSearch"]
 ---
 
 # Research Notes

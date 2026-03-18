@@ -1,6 +1,7 @@
 ---
 description: Explore recent commit history and generate structured commit notes grouped by author and code area. Useful for understanding what changed recently, onboarding, or preparing release notes.
 argument-hint: "[--author AUTHOR] [--since TIMERANGE] [--path PATH] [--topic TOPIC]"
+allowed-tools: ["Read", "Write", "Bash(cd ~/.claude/*)", "Bash(uv run*)", "Bash(git *)", "Glob"]
 ---
 
 # Explore Commit History

@@ -1,6 +1,7 @@
 ---
 description: Check the staleness status of all codebase notes, showing which notes are fresh, stale, or untracked. Presents a knowledge map with actionable next steps.
 argument-hint: "[--all-repos] [--no-cache] [--json]"
+allowed-tools: ["Read", "Bash(cd ~/.claude/*)", "Bash(uv run*)", "Glob"]
 ---
 
 # Check Notes Staleness

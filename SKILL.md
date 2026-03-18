@@ -1,6 +1,7 @@
 ---
 name: codebase-notes
 description: Generate, explore, and maintain a hierarchical knowledge base of structured notes for any codebase. Notes are stored centrally at ~/.claude/repo_notes/<repo_id>/ and shared across all clones of the same repo. Use this skill when the user wants to understand a codebase, create documentation notes, explore a repo progressively, build a knowledge graph, or asks to "learn about this codebase", "create notes", "explore this repo", "document this project", or "help me understand this code". Also triggers for requests to update existing notes, add diagrams, dive deeper into specific areas, or when any agent needs codebase context. On activation, always run Step 0 to resolve the notes path and check for existing notes.
+allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "WebFetch", "WebSearch"]
 ---
 
 # Codebase Notes

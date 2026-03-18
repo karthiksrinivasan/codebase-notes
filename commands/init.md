@@ -1,6 +1,7 @@
 ---
 description: Initialize codebase notes for the current repository. Bootstraps scripts, resolves repo identity, scaffolds the notes directory, and writes the initial overview.
 argument-hint: "[--force]"
+allowed-tools: ["Read", "Write", "Edit", "Bash(cd ~/.claude/*)", "Bash(uv run*)", "Bash(git *)", "Bash(find *)", "Bash(ls *)", "Glob", "Grep", "Agent"]
 ---
 
 # Initialize Codebase Notes

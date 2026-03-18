@@ -1,6 +1,7 @@
 ---
 description: Update stale codebase notes by detecting changes since last update, re-exploring affected code, and refreshing note content in-place.
 argument-hint: "[TOPIC] [--all] [--force]"
+allowed-tools: ["Read", "Write", "Edit", "Bash(cd ~/.claude/*)", "Bash(uv run*)", "Bash(git *)", "Bash(find *)", "Glob", "Grep", "Agent"]
 ---
 
 # Update Stale Notes

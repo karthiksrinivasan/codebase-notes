@@ -1,6 +1,7 @@
 ---
 description: Explore a codebase topic and write structured notes. Dispatches an Explore agent, writes notes following the capture matrix, updates navigation, and presents options for deeper exploration.
 argument-hint: "TOPIC [--path src/api/] [--deep] [--parallel TOPIC2 TOPIC3...]"
+allowed-tools: ["Read", "Write", "Edit", "Bash(cd ~/.claude/*)", "Bash(uv run*)", "Bash(git *)", "Bash(find *)", "Glob", "Grep", "Agent"]
 ---
 
 # Explore Topic

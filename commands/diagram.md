@@ -1,6 +1,7 @@
 ---
 description: Add or update Excalidraw diagrams for codebase notes. Creates architecture, data flow, or state machine diagrams and renders them to PNG.
 argument-hint: "[NOTE] [--type TYPE] [--all-missing]"
+allowed-tools: ["Read", "Write", "Bash(cd ~/.claude/*)", "Bash(uv run*)", "Glob", "Agent"]
 ---
 
 # Add/Update Diagrams

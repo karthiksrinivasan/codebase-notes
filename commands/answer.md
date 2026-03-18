@@ -1,6 +1,7 @@
 ---
 description: Answer questions about the codebase using notes as the primary context source. Reads relevant notes first, falls back to code exploration only when needed, and updates notes with any new findings.
 argument-hint: "QUESTION"
+allowed-tools: ["Read", "Write", "Edit", "Bash(cd ~/.claude/*)", "Bash(uv run*)", "Glob", "Grep", "Agent"]
 ---
 
 # Answer from Notes

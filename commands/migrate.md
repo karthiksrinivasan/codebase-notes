@@ -1,6 +1,7 @@
 ---
 description: Migrate v1 codebase notes (stored in-repo at docs/notes/) to the v2 centralized location at ~/.claude/repo_notes/. Copies files, updates links, and reports any broken references.
 argument-hint: "[--from PATH]"
+allowed-tools: ["Read", "Bash(cd ~/.claude/*)", "Bash(uv run*)", "Bash(find *)", "Glob"]
 ---
 
 # Migrate v1 Notes to v2
