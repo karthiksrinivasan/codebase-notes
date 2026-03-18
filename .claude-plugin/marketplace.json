@@ -1,14 +1,21 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "codebase-notes-local",
+  "description": "Local marketplace for codebase-notes plugin",
+  "version": "1.0.0",
   "owner": {
     "name": "karthik"
   },
   "plugins": [
     {
       "name": "codebase-notes",
-      "source": "..",
       "description": "Generate, explore, and maintain a hierarchical knowledge base of structured notes for any codebase",
-      "version": "2.0.0"
+      "version": "2.0.0",
+      "author": {
+        "name": "karthik"
+      },
+      "source": "./",
+      "category": "development"
     }
   ]
 }
