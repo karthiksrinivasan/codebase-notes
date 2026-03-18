@@ -79,7 +79,7 @@ cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts <command>
 Ensure the Python environment is ready:
 
 ```bash
-cd ~/.claude/skills/codebase-notes/scripts && test -d .venv || uv sync
+cd ~/.claude/skills/codebase-notes && test -d .venv || uv sync
 ```
 
 If `.venv` doesn't exist, `uv sync` will create it and install all dependencies (PyYAML, Pillow). This only needs to happen once, but always check.
@@ -352,7 +352,7 @@ cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts commits -
 This runs `git log`, groups commits by author and path prefix, and writes markdown files to:
 
 ```
-~/.claude/repo_notes/<repo_id>/notes/commits/<author-slug>/<path-slug>.md
+~/.claude/repo_notes/<repo_id>/commits/<author-slug>/<path-slug>.md
 ```
 
 Each file contains a YAML frontmatter header, a summary placeholder (for Claude to fill), and a table of commits with date, message, and hash.
@@ -434,27 +434,31 @@ cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts auto-upda
 
 ### Directory Layout
 
-Notes are stored at `~/.claude/repo_notes/<repo_id>/notes/`:
+Notes are stored at `~/.claude/repo_notes/<repo_id>/`:
 
 ```
-notes/
-├── 00-overview.md
-├── RULES.md
-├── 01-topic-name/
-│   ├── index.md
-│   ├── 01-subtopic.md
-│   ├── 01-subtopic.excalidraw
-│   ├── 01-subtopic.png
-│   ├── 02-subtopic.md
-│   └── 03-deep-topic/
-│       ├── index.md
-│       ├── 01-detail.md
+~/.claude/repo_notes/<repo_id>/
+├── notes/
+│   ├── 00-overview.md
+│   ├── RULES.md
+│   ├── 01-topic-name/
+│   │   ├── index.md
+│   │   ├── 01-subtopic.md
+│   │   ├── 01-subtopic.excalidraw
+│   │   ├── 01-subtopic.png
+│   │   ├── 02-subtopic.md
+│   │   └── 03-deep-topic/
+│   │       ├── index.md
+│   │       ├── 01-detail.md
+│   │       └── ...
+│   ├── 02-topic-name/
+│   │   └── ...
+│   └── research/
 │       └── ...
-├── 02-topic-name/
-│   └── ...
-└── commits/
-    └── author-slug/
-        └── path-slug.md
+├── commits/
+│   └── author-slug/
+│       └── path-slug.md
+└── .repo_paths
 ```
 
 **Naming:** Folders `NN-topic-name/`, files `NN-subtopic.md`. Each folder has `index.md`. Diagrams sit alongside notes with matching names. Multiple diagrams per note use suffixes: `01-thing-architecture.excalidraw`, `01-thing-dataflow.excalidraw`.

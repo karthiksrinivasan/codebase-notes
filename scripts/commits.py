@@ -326,8 +326,8 @@ def _resolve_repo_id(cwd: Optional[str] = None) -> str:
 
 
 def _get_notes_dir(repo_id: str) -> Path:
-    """Return notes base dir for repo_id (parent of 'commits/' dir)."""
-    return Path.home() / ".claude" / "repo_notes" / repo_id / "notes"
+    """Return repo base dir for repo_id (parent of 'commits/' and 'notes/' dirs)."""
+    return Path.home() / ".claude" / "repo_notes" / repo_id
 
 
 # Public aliases used by tests for patching

@@ -296,8 +296,13 @@ def rebuild_all_nav_links(notes_dir: Path) -> list[str]:
 
 def run(args) -> int:
     try:
+        from pathlib import Path as _Path
         from scripts.repo_id import get_notes_dir
-        notes_dir = get_notes_dir()
+        explicit_id = getattr(args, "repo_id", None)
+        if explicit_id:
+            notes_dir = _Path.home() / ".claude" / "repo_notes" / explicit_id / "notes"
+        else:
+            notes_dir = get_notes_dir()
         if not notes_dir.is_dir():
             print(f"Notes directory not found: {notes_dir}", file=sys.stderr)
             return 1

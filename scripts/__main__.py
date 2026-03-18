@@ -22,6 +22,7 @@ def main() -> int:
     stale_parser.add_argument("--repo-id", help="Repo ID (auto-detected if omitted)")
     stale_parser.add_argument("--all-repos", action="store_true", help="Check all repos")
     stale_parser.add_argument("--no-cache", action="store_true", help="Skip staleness cache")
+    stale_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     # nav
     nav_parser = subparsers.add_parser("nav", help="Rebuild all navigation links")
@@ -53,6 +54,7 @@ def main() -> int:
     # migrate
     migrate_parser = subparsers.add_parser("migrate", help="Migrate v1 notes to v2")
     migrate_parser.add_argument("--from", dest="from_path", required=True, help="Source notes path")
+    migrate_parser.add_argument("--repo-id", help="Repo ID (auto-detected if omitted)")
 
     args = parser.parse_args()
 

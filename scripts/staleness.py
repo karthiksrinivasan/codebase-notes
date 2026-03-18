@@ -82,6 +82,7 @@ def check_note_staleness(note_path: Path, repo_root: Path) -> NoteReport:
 
     all_changed: list[str] = []
     last_commit = None
+    had_errors = False
 
     for entry in fm["git_tracked_paths"]:
         path = entry.get("path", "")
@@ -102,7 +103,7 @@ def check_note_staleness(note_path: Path, repo_root: Path) -> NoteReport:
                 changed = result.stdout.strip().split("\n")
                 all_changed.extend(changed)
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
+            had_errors = True
 
     if all_changed:
         return NoteReport(
@@ -113,11 +114,12 @@ def check_note_staleness(note_path: Path, repo_root: Path) -> NoteReport:
             message=f"{len(all_changed)} files changed since {last_commit}",
         )
 
+    msg = "0 files changed" + (" (some checks failed)" if had_errors else "")
     return NoteReport(
         note_path=str(note_path),
         status=StalenessStatus.FRESH,
         commit=last_commit,
-        message="0 files changed",
+        message=msg,
     )
 
 
@@ -236,11 +238,21 @@ def _find_valid_clone(repo_paths_file: Path, expected_repo_id: str) -> Optional[
         if first_valid is None:
             first_valid = clone_path
 
-    # Prune invalid paths by rewriting the file
+    # Prune invalid paths by rewriting the file (with locking)
     if valid_paths != [l.strip() for l in lines if l.strip()]:
-        repo_paths_file.write_text(
-            "\n".join(valid_paths) + "\n", encoding="utf-8"
-        )
+        import fcntl
+        import os
+        lock_file = repo_paths_file.parent / ".repo_paths.lock"
+        lock_file.touch(exist_ok=True)
+        fd = os.open(str(lock_file), os.O_RDWR)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            repo_paths_file.write_text(
+                "\n".join(valid_paths) + "\n", encoding="utf-8"
+            )
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
 
     return first_valid
 
@@ -273,8 +285,13 @@ def run(args) -> int:
                 print(format_report(reports))
             return 0
 
-        repo_dir = get_repo_dir()
-        notes_dir = get_notes_dir()
+        explicit_id = getattr(args, "repo_id", None)
+        if explicit_id:
+            repo_dir = Path.home() / ".claude" / "repo_notes" / explicit_id
+            notes_dir = repo_dir / "notes"
+        else:
+            repo_dir = get_repo_dir()
+            notes_dir = get_notes_dir()
 
         if not getattr(args, "no_cache", False) and is_cache_valid(repo_dir):
             cached = load_cache(repo_dir)
@@ -290,7 +307,11 @@ def run(args) -> int:
 
         reports = check_all_notes(notes_dir, repo_root)
         save_cache(repo_dir, reports)
-        print(format_report(reports))
+
+        if getattr(args, "json", False):
+            print(json.dumps([r.to_dict() for r in reports], indent=2))
+        else:
+            print(format_report(reports))
         return 0
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

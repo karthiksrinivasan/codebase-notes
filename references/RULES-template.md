@@ -213,8 +213,7 @@ comes first) via `BatchWriter`.
 If a transform raises an unhandled exception, the message is sent to
 `raw_events_dlq` after 3 delivery attempts. Alert: `dlq.message.count > 0`.
 Operator action: inspect the DLQ message, fix the transformer, then replay
-via `cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts nav`
-to rebuild navigation after documenting the fix.
+via `python manage.py replay_dlq --message-id <id>` after fixing the root cause.
 ```
 
 ## Content Rules

@@ -86,6 +86,7 @@ def generate_plist_content(interval_hours: int = 6) -> str:
     """
     interval_seconds = interval_hours * 3600
     # Use /bin/bash -c so we can cd first
+    # NOTE: &amp;&amp; is XML-escaped && — required for valid plist XML. Do not "fix" to &&.
     command = f"cd {SCRIPTS_DIR} &amp;&amp; uv run python -m scripts auto-update --all-repos"
 
     return textwrap.dedent(f"""\

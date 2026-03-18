@@ -26,7 +26,7 @@ You are initializing codebase notes for the current repository. Follow these ste
 1. **Bootstrap scripts** — ensure the virtual environment exists:
 
 ```bash
-cd ~/.claude/skills/codebase-notes/scripts && test -d .venv || uv sync
+cd ~/.claude/skills/codebase-notes && test -d .venv || uv sync
 ```
 
 2. **Resolve repo identity**:
