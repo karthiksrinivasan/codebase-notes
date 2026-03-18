@@ -1,10 +1,10 @@
 ---
-name: stats
+name: notes-stats
 description: Display statistics for codebase notes — number of sections, files, lines, and words across notes, research, commits, and projects directories.
 allowed-tools: ["Read", "Bash"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/stats/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/notes-stats/SKILL.md` → plugin root is `../../`.
 
 # Notes Statistics
 
@@ -15,8 +15,8 @@ allowed-tools: ["Read", "Bash"]
 | `--json` | No | Output as JSON instead of a table |
 
 **Examples:**
-- `/codebase-notes:stats`
-- `/codebase-notes:stats --json`
+- `/codebase-notes:notes-stats`
+- `/codebase-notes:notes-stats --json`
 
 ---
 

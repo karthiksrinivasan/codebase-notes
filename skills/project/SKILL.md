@@ -14,19 +14,24 @@ Manage project-level brainstorming and planning notes within a codebase. Project
 
 | Subcommand | Arguments | Description |
 |------------|-----------|-------------|
+| `list` | (none) | List all projects and show which is active |
+| `use` | `"project-name"` (required) | Set the active project (avoids needing `--project` every time) |
 | `new` | `"project-name"` (required) | Create and scaffold a new project |
 | `brainstorm` | `"query"` (required), `--file PATH`, `--url URL`, `--project NAME` | Explore a topic and update project notes |
 | `ask` | `"question"` (required), `--project NAME` | Answer from project notes only |
-| `update` | `"prompt"` (required), `--project NAME` | Update notes based on prompt |
+| `update` | `"prompt"` (required), `--file PATH`, `--url URL`, `--project NAME` | Update notes based on prompt, optionally informed by a file or URL |
 | `question` | `--project NAME` | List open questions across the project |
 
 **Examples:**
+- `/codebase-notes:project list` — show all projects, highlights active one
+- `/codebase-notes:project use "auth-redesign"` — sets active project, no need for `--project` after this
 - `/codebase-notes:project new "auth-redesign"`
-- `/codebase-notes:project brainstorm "how should we handle OAuth flows?" --project auth-redesign`
+- `/codebase-notes:project brainstorm "how should we handle OAuth flows?"` — uses active project
 - `/codebase-notes:project brainstorm "review this RFC" --file docs/rfc-auth.md --project auth-redesign`
 - `/codebase-notes:project brainstorm "what does this propose?" --url https://example.com/article`
 - `/codebase-notes:project ask "what are the current goals?" --project auth-redesign`
 - `/codebase-notes:project update "add a new constraint about latency budgets" --project auth-redesign`
+- `/codebase-notes:project update "incorporate findings and add diagrams" --file docs/proposal.md --project auth-redesign`
 - `/codebase-notes:project question --project auth-redesign`
 
 ---
@@ -65,13 +70,60 @@ Projects live at: `~/.claude/repo_notes/<repo_id>/projects/`
 
 ## Project Resolution
 
-When a subcommand needs to know which project to operate on (all subcommands except `new`):
+When a subcommand needs to know which project to operate on (all subcommands except `new` and `use`):
 
 1. If `--project NAME` is provided, use that project name
-2. If the `projects/` directory has exactly one project, use it automatically
-3. If multiple projects exist and no `--project` was given, list all projects and ask the user which one
+2. If `projects/.active-project` exists, read the project name from it
+3. If the `projects/` directory has exactly one project, use it automatically
+4. If multiple projects exist and none of the above resolved, list all projects and ask the user which one
 
-If the resolved `--project NAME` does not exist, tell the user and suggest `/codebase-notes:project new "NAME"` instead.
+If the resolved project does not exist, tell the user and suggest `/codebase-notes:project new "NAME"` instead.
+
+**Note:** The `new` subcommand automatically sets the newly created project as active.
+
+---
+
+## Subcommand: `list`
+
+### Arguments
+
+None.
+
+### Flow
+
+1. Run Step 0 to resolve the repo ID and projects path
+2. List all subdirectories in `projects/` (excluding `research/` and `.active-project`)
+3. Read `projects/.active-project` if it exists to determine the active project
+4. For each project, read its `index.md` frontmatter to get `status` and `last_updated`
+5. Present as a table:
+
+   ```
+   ## Projects
+
+   | # | Project          | Status       | Last Updated | Active |
+   |---|------------------|--------------|--------------|--------|
+   | 1 | auth-redesign    | brainstorming| 2026-03-15   | *      |
+   | 2 | api-v2           | active       | 2026-03-10   |        |
+   ```
+
+6. If no projects exist, suggest `/codebase-notes:project new "name"` to get started
+
+---
+
+## Subcommand: `use`
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `"project-name"` | **Yes** | Name of the project to set as active |
+
+### Flow
+
+1. Run Step 0 to resolve the repo ID and projects path
+2. Verify `projects/<project-name>/` exists — if not, tell the user and suggest `new`
+3. Write the project name to `projects/.active-project` (plain text, just the name)
+4. Confirm to the user: "Active project set to **<project-name>**. All subsequent commands will use this project by default."
 
 ---
 
@@ -129,7 +181,8 @@ status: brainstorming
 - <initial questions based on the project description and scope>
 ```
 
-6. List the initial open questions and suggest next steps (brainstorming specific topics)
+6. Write the project name to `projects/.active-project` to set it as the active project
+7. List the initial open questions and suggest next steps (brainstorming specific topics)
 
 **Note:** `new` intentionally has no `--file` or `--url` flags — it is a guided setup only.
 
@@ -255,6 +308,8 @@ View each rendered PNG with the Read tool to verify quality. Embed with `![descr
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `"prompt"` | **Yes** | Description of the update to make |
+| `--file PATH` | No | Path to a file to read as input — its content informs the update to project notes (the file itself is NOT modified) |
+| `--url URL` | No | URL to fetch as input — its content informs the update to project notes |
 | `--project NAME` | No | Project to update (see Project Resolution) |
 
 ### Flow
@@ -262,14 +317,15 @@ View each rendered PNG with the Read tool to verify quality. Embed with `![descr
 1. Run Step 0 to resolve the repo ID and projects path
 2. Resolve the project (see Project Resolution)
 3. Read existing project notes to understand current state
-4. Apply the update described in the prompt:
+4. If `--file PATH`, `--url URL`, or a file path appears inline in the prompt, read the source material first — this is **input context** that informs the update to project notes. **Never modify the source file/URL itself.**
+5. Apply the update described in the prompt:
    - Edit existing notes to incorporate changes
    - Add new content (new topic directories, new subtopic notes)
    - Reorganize structure if the prompt calls for it
    - When creating new topic directories, scan existing directories and pick the next sequential number
-5. Update `last_updated` in the frontmatter of every note that was modified
-6. Update the Knowledge Map table in `index.md` if structure changed (topics added, removed, or reorganized)
-7. Update navigation links in `index.md` if structure changed — managed by Claude directly, not the `nav` script
+6. Update `last_updated` in the frontmatter of every note that was modified
+7. Update the Knowledge Map table in `index.md` if structure changed (topics added, removed, or reorganized)
+8. Update navigation links in `index.md` if structure changed — managed by Claude directly, not the `nav` script
 
 ---
 
