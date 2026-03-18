@@ -56,6 +56,10 @@ def main() -> int:
     migrate_parser.add_argument("--from", dest="from_path", required=True, help="Source notes path")
     migrate_parser.add_argument("--repo-id", help="Repo ID (auto-detected if omitted)")
 
+    # stats
+    stats_parser = subparsers.add_parser("stats", help="Display notes statistics")
+    stats_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -75,6 +79,7 @@ def main() -> int:
         "auto-update": "scripts.cron",
         "cron": "scripts.cron",
         "migrate": "scripts.migrate",
+        "stats": "scripts.stats",
     }
 
     module_name = dispatch.get(args.command)

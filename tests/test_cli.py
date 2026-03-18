@@ -19,7 +19,7 @@ def _run_scripts(*args):
 def test_help_shows_all_commands():
     result = _run_scripts("--help")
     assert result.returncode == 0
-    for cmd in ["repo-id", "scaffold", "stale", "nav", "render", "commits", "auto-update", "cron", "migrate"]:
+    for cmd in ["repo-id", "scaffold", "stale", "nav", "render", "commits", "auto-update", "cron", "migrate", "stats"]:
         assert cmd in result.stdout, f"Missing subcommand: {cmd}"
 
 
