@@ -35,11 +35,11 @@ You are creating or updating research notes — a curated knowledge base of exte
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
 ```
 
-Research notes live at: `~/.claude/repo_notes/<repo_id>/notes/research/`
+Research notes live at: `~/.claude/repo_notes/<repo_id>/research/`
 
 Read the research index if it exists:
 ```
-Read ~/.claude/repo_notes/<repo_id>/notes/research/index.md
+Read ~/.claude/repo_notes/<repo_id>/research/index.md
 ```
 
 ## Step 1: Determine Research Scope

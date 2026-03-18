@@ -190,13 +190,21 @@ Notes are stored at `~/.claude/repo_notes/<repo_id>/`:
 │   │       ├── index.md
 │   │       ├── 01-detail.md
 │   │       └── ...
-│   ├── 02-topic-name/
-│   │   └── ...
-│   └── research/
+│   └── 02-topic-name/
 │       └── ...
+├── research/
+│   ├── index.md
+│   ├── 01-topic-name/
+│   │   ├── index.md
+│   │   └── 01-paper-or-article.md
+│   └── ...
 ├── commits/
 │   └── author-slug/
 │       └── path-slug.md
+├── projects/
+│   └── project-name/
+│       ├── index.md
+│       └── ...
 └── .repo_paths
 ```
 

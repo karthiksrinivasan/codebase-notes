@@ -20,13 +20,15 @@ def fake_env(tmp_path):
 
 
 class TestScaffoldCreatesStructure:
-    def test_creates_notes_and_commits_dirs(self, fake_env):
+    def test_creates_all_content_dirs(self, fake_env):
         tmp_path, repo_notes, refs_dir = fake_env
         with patch("scripts.scaffold.REPO_NOTES_BASE", repo_notes), \
              patch("scripts.scaffold.REFERENCES_DIR", refs_dir):
             scaffold_repo("org--repo", clone_path="/tmp/fake-clone")
         assert (repo_notes / "org--repo" / "notes").is_dir()
         assert (repo_notes / "org--repo" / "commits").is_dir()
+        assert (repo_notes / "org--repo" / "research").is_dir()
+        assert (repo_notes / "org--repo" / "projects").is_dir()
 
     def test_copies_rules_template(self, fake_env):
         _, repo_notes, refs_dir = fake_env

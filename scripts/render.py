@@ -412,23 +412,34 @@ def run(args: Any = None) -> int:
 
     repo_id = getattr(args, "repo_id", None) if args else None
     rid = repo_id or resolve_repo_id()
-    notes_dir = Path.home() / ".claude" / "repo_notes" / rid / "notes"
+    repo_root = Path.home() / ".claude" / "repo_notes" / rid
 
-    if not notes_dir.exists():
-        print(f"Notes directory not found: {notes_dir}")
+    # Scan all content directories for diagrams
+    scan_dirs = [repo_root / d for d in ("notes", "projects", "commits", "research")]
+    found_any = False
+    combined: dict[str, list[str]] = {"rendered": [], "skipped": [], "errors": []}
+
+    for scan_dir in scan_dirs:
+        if not scan_dir.exists():
+            continue
+        found_any = True
+        results = find_and_render_excalidraw(scan_dir)
+        for key in combined:
+            combined[key].extend(results[key])
+
+    if not found_any:
+        print(f"No notes or projects directory found under: {repo_root}")
         return 1
 
-    results = find_and_render_excalidraw(notes_dir)
-
-    if results["rendered"]:
-        print(f"Rendered {len(results['rendered'])} diagram(s):")
-        for p in results["rendered"]:
+    if combined["rendered"]:
+        print(f"Rendered {len(combined['rendered'])} diagram(s):")
+        for p in combined["rendered"]:
             print(f"  {p}")
-    if results["skipped"]:
-        print(f"Skipped {len(results['skipped'])} fresh diagram(s)")
-    if results["errors"]:
-        print(f"WARNING: {len(results['errors'])} diagram(s) failed to render:")
-        for p in results["errors"]:
+    if combined["skipped"]:
+        print(f"Skipped {len(combined['skipped'])} fresh diagram(s)")
+    if combined["errors"]:
+        print(f"WARNING: {len(combined['errors'])} diagram(s) failed to render:")
+        for p in combined["errors"]:
             print(f"  {p}")
 
     return 0

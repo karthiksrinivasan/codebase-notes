@@ -55,9 +55,13 @@ def scaffold_repo(repo_id: str, clone_path: str) -> None:
     repo_dir = REPO_NOTES_BASE / repo_id
     notes_dir = repo_dir / "notes"
     commits_dir = repo_dir / "commits"
+    research_dir = repo_dir / "research"
+    projects_dir = repo_dir / "projects"
 
     notes_dir.mkdir(parents=True, exist_ok=True)
     commits_dir.mkdir(parents=True, exist_ok=True)
+    research_dir.mkdir(parents=True, exist_ok=True)
+    projects_dir.mkdir(parents=True, exist_ok=True)
 
     rules_dest = notes_dir / "RULES.md"
     rules_src = REFERENCES_DIR / "RULES-template.md"

@@ -37,7 +37,7 @@ def collect_stats(repo_dir: Path) -> dict:
     """Collect stats for all four directories under a repo."""
     dirs = {
         "notes": repo_dir / "notes",
-        "research": repo_dir / "notes" / "research",
+        "research": repo_dir / "research",
         "commits": repo_dir / "commits",
         "projects": repo_dir / "projects",
     }

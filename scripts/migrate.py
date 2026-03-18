@@ -196,6 +196,31 @@ def migrate(
     # Step 1: Copy all eligible files
     copied_files = copy_v1_notes(from_path, dest_notes)
 
+    # Step 1b: Relocate research/ from notes/research/ to <root>/research/
+    nested_research = dest_notes / "research"
+    if nested_research.is_dir():
+        dest_research = REPO_NOTES_BASE / repo_id / "research"
+        if dest_research.exists():
+            # Merge into existing research dir
+            for item in nested_research.rglob("*"):
+                if item.is_file():
+                    rel = item.relative_to(nested_research)
+                    target = dest_research / rel
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(item, target)
+        else:
+            shutil.move(str(nested_research), str(dest_research))
+        # Clean up nested dir if it still exists
+        if nested_research.exists():
+            shutil.rmtree(nested_research)
+        # Update copied_files paths
+        copied_files = [
+            REPO_NOTES_BASE / repo_id / "research" / p.relative_to(nested_research)
+            if str(p).startswith(str(nested_research))
+            else p
+            for p in copied_files
+        ]
+
     # Step 2: Process links in all .md files
     all_broken_links = []
     old_notes_rel = str(from_path.relative_to(repo_root))

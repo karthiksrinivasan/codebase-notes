@@ -17,16 +17,17 @@ Notes are stored centrally at `~/.claude/repo_notes/<repo_id>/notes/`.
 Example tree:
 
 ```
-~/.claude/repo_notes/<repo_id>/notes/
-  00-overview.md
-  01-auth/
-    index.md
-    01-oauth-flow.md
-    02-session-management.md
-  02-data-pipeline/
-    index.md
-    01-ingestion.md
-    02-transformations.md
+~/.claude/repo_notes/<repo_id>/
+  notes/
+    00-overview.md
+    01-auth/
+      index.md
+      01-oauth-flow.md
+      02-session-management.md
+    02-data-pipeline/
+      index.md
+      01-ingestion.md
+      02-transformations.md
   research/
     index.md
     01-topic-name/
@@ -38,6 +39,8 @@ Example tree:
       01-sub-group/
         index.md
         01-paper.md
+  commits/
+  projects/
 ```
 
 ## Navigation

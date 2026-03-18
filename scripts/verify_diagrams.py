@@ -212,7 +212,7 @@ def run(args) -> int:
         return 1
 
     notes_dir = repo_dir / "notes"
-    research_dir = repo_dir / "notes" / "research"
+    research_dir = repo_dir / "research"
     commits_dir = repo_dir / "commits"
     projects_dir = repo_dir / "projects"
 
@@ -229,14 +229,7 @@ def run(args) -> int:
             issues = scan_directory(directory)
             all_issues.extend(issues)
 
-    # Deduplicate: research is inside notes, so skip duplicates
-    seen = set()
-    deduped = []
-    for issue in all_issues:
-        key = (issue["note"], issue["section"])
-        if key not in seen:
-            seen.add(key)
-            deduped.append(issue)
+    deduped = all_issues
 
     report = format_report(deduped, repo_dir)
     print(report)

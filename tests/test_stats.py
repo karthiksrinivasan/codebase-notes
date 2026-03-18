@@ -23,8 +23,8 @@ def repo_dir(tmp_path):
     api.mkdir()
     (api / "index.md").write_text("# API\n\nAPI layer.\n")
 
-    # notes/research/
-    research = notes / "research"
+    # research/ (sibling of notes/)
+    research = tmp_path / "research"
     research.mkdir()
     (research / "index.md").write_text("# Research\n")
     (research / "01-vectors.md").write_text("# Vector DBs\n\nSome research notes.\n")
@@ -60,13 +60,19 @@ class TestCountDir:
     def test_counts_sections_files_lines_words(self, repo_dir):
         notes = repo_dir / "notes"
         result = _count_dir(notes)
-        # sections: 01-auth, 02-api, research (direct children dirs)
-        assert result["sections"] == 3
-        # files: 00-overview.md, 01-auth/index.md, 01-auth/01-oauth.md,
-        #        02-api/index.md, research/index.md, research/01-vectors.md
-        assert result["files"] == 6
+        # sections: 01-auth, 02-api (direct children dirs)
+        assert result["sections"] == 2
+        # files: 00-overview.md, 01-auth/index.md, 01-auth/01-oauth.md, 02-api/index.md
+        assert result["files"] == 4
         assert result["lines"] > 0
         assert result["words"] > 0
+
+    def test_counts_research_separately(self, repo_dir):
+        research = repo_dir / "research"
+        result = _count_dir(research)
+        # No subdirectories in fixture, so sections=0
+        assert result["sections"] == 0
+        assert result["files"] == 2  # index.md, 01-vectors.md
 
     def test_ignores_non_md_files(self, tmp_path):
         d = tmp_path / "mixed"
