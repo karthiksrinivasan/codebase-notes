@@ -408,9 +408,11 @@ def run(args: Any = None) -> int:
     """CLI handler for the 'render' command."""
     from scripts.repo_id import resolve_repo_id, get_notes_dir
 
+    from pathlib import Path
+
     repo_id = getattr(args, "repo_id", None) if args else None
     rid = repo_id or resolve_repo_id()
-    notes_dir = get_notes_dir(rid)
+    notes_dir = Path.home() / ".claude" / "repo_notes" / rid / "notes"
 
     if not notes_dir.exists():
         print(f"Notes directory not found: {notes_dir}")
