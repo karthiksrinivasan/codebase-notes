@@ -41,7 +41,7 @@ def _parse_remote_url(url: str) -> str:
 
 def resolve_repo_id(cwd: str | None = None) -> str:
     if cwd is None:
-        cwd = os.getcwd()
+        cwd = os.environ.get("REPO_CWD", os.getcwd())
     try:
         result = subprocess.run(
             ["git", "remote", "get-url", "origin"],
