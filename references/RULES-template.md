@@ -1,6 +1,8 @@
 # Notes Generation Rules
 
-Rules for how exploration notes in this directory should be created and maintained.
+Rules for how exploration notes should be created and maintained.
+
+Notes are stored centrally at `~/.claude/repo_notes/<repo_id>/notes/`.
 
 ## Structure
 
@@ -8,6 +10,22 @@ Rules for how exploration notes in this directory should be created and maintain
 - **`00-overview.md`** is the root. It links to all top-level topic folders and tracks exploration status.
 - **`index.md`** in each folder serves as the topic overview and links to all children.
 - **Numbering**: folders use `NN-topic-name/`, files use `NN-subtopic.md` (01, 02, 03...).
+- **Centralized storage**: all notes live under `~/.claude/repo_notes/<repo_id>/notes/`. Do not store notes inside the repository itself.
+
+Example tree:
+
+```
+~/.claude/repo_notes/<repo_id>/notes/
+  00-overview.md
+  01-auth/
+    index.md
+    01-oauth-flow.md
+    02-session-management.md
+  02-data-pipeline/
+    index.md
+    01-ingestion.md
+    02-transformations.md
+```
 
 ## Navigation
 
@@ -21,53 +39,296 @@ Every note must have a navigation bar at the top:
 - **Prev/Next** — link to sibling notes for linear reading within a folder
 - **Sub-topics** (on index.md only) — links to children when they exist
 - All links are **relative paths**, never absolute
+- Navigation bars are rebuilt automatically:
 
-## Content
+```bash
+cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts nav
+```
 
-- **Lead with "What is it?"** — one-paragraph summary at the top of every note
-- **Prefer tables and diagrams** over prose for structured data (config fields, API endpoints, database schemas, etc.)
-- **Include key file paths** — a "Key Files" table at the bottom mapping files to their purpose
-- **Code snippets** — use sparingly, only for schemas, key data structures, or non-obvious patterns
+Run this after adding, removing, or renaming any note.
+
+## Capture Matrix
+
+Every note should be written through one or more of these lenses. Each lens asks a different follow-up question after "What is X?". Notes that only answer "What?" without any follow-up lens produce shallow, unhelpful documentation.
+
+### What + Why (Architecture Decisions)
+
+Capture the reasoning behind architectural choices: why this approach over alternatives, what constraints drove the decision, what trade-offs were accepted.
+
+**Good:**
+> The auth service uses JWT with short-lived access tokens (15 min) and long-lived refresh tokens (30 days). This avoids per-request database lookups for token validation while still allowing revocation within 15 minutes. Alternative considered: opaque tokens with Redis lookup — rejected because it added a Redis dependency to every service.
+
+**Bad:**
+> The auth service uses JWT tokens. Access tokens expire after 15 minutes and refresh tokens expire after 30 days.
+
+The bad example states facts without explaining *why* those values were chosen or what alternatives existed.
+
+### What + How (Implementation Patterns)
+
+Capture the non-obvious implementation pattern: how something actually works under the hood when reading the code alone would be confusing or time-consuming.
+
+**Good:**
+> Retry logic uses exponential backoff with jitter. The base delay doubles each attempt (1s, 2s, 4s, 8s) up to a 30s cap, then adds random jitter of 0-25% to prevent thundering herd. The `RetryPolicy` class wraps any async callable and is applied via decorator `@with_retry(max_attempts=5)`.
+
+**Bad:**
+> The system retries failed requests. It uses the `RetryPolicy` class with exponential backoff.
+
+The bad example names the class but does not explain the actual behavior, cap, jitter, or how to apply it.
+
+### What + Where (Data Flow)
+
+Capture how data moves through the system: entry points, transformations, storage destinations, and exit points.
+
+**Good:**
+> User upload flow: file arrives at `POST /api/uploads` -> validated in `UploadHandler` (size, type, virus scan) -> stored to S3 via `StorageService.put()` -> metadata row inserted in `uploads` table -> async job queued on `file-processing` SQS queue -> worker resizes images and extracts text -> results written to `upload_artifacts` table -> webhook fires to notify caller.
+
+**Bad:**
+> Files are uploaded through the API and stored in S3. A background job processes them.
+
+The bad example omits the intermediate steps, the queue, the database tables, and the webhook — the details that actually help someone debug or extend the flow.
+
+### What + When (Configuration)
+
+Capture environment variables, config files, feature flags, and — critically — *when* each setting should be changed and what effect the change has.
+
+**Good:**
+> | Variable | Default | When to Change | Effect |
+> |---|---|---|---|
+> | `MAX_POOL_SIZE` | 10 | Under high DB load; increase to 25 for >1k RPS | More concurrent DB connections; watch for DB connection limits |
+> | `CACHE_TTL_SECS` | 300 | When stale reads cause user-visible bugs | Lower = fresher data but more DB hits |
+> | `FEATURE_NEW_UI` | false | After QA sign-off on the redesign | Enables new dashboard for all users |
+
+**Bad:**
+> The application uses these environment variables: `MAX_POOL_SIZE` (default 10), `CACHE_TTL_SECS` (default 300), `FEATURE_NEW_UI` (default false).
+
+The bad example lists variables and defaults but gives no guidance on when or why to change them.
+
+### What + Who (Integration Points)
+
+Capture how this system connects to external systems: what it calls, what calls it, authentication methods, failure modes, and ownership boundaries.
+
+**Good:**
+> The billing service integrates with Stripe via their v2 API. Auth uses a restricted API key stored in `STRIPE_SECRET_KEY` (rotated quarterly by the platform team). On payment failure, Stripe sends a webhook to `POST /webhooks/stripe` — the handler retries charge 3x over 72 hours, then marks the subscription as `past_due`. The platform team owns the Stripe account; billing team owns the webhook handler.
+
+**Bad:**
+> The billing service uses the Stripe API for payments. Webhooks handle payment events.
+
+The bad example omits auth details, failure behavior, retry logic, and ownership — the things someone needs when debugging a production payment issue.
+
+### What + What-If (Error Handling)
+
+Capture failure modes, error propagation, recovery strategies, and what operators should do when things go wrong.
+
+**Good:**
+> If Redis is unreachable, the session middleware falls back to in-memory sessions with a 5-minute TTL and emits a `redis.fallback` metric. This means: (1) sessions are not shared across pods — sticky sessions required, (2) a Redis outage lasting >5 min causes all users to re-authenticate. Alert threshold: `redis.fallback` count > 0 for 2 consecutive minutes. Recovery: once Redis is back, new sessions automatically use it; existing in-memory sessions expire naturally.
+
+**Bad:**
+> The system handles Redis failures gracefully with a fallback mechanism.
+
+The bad example says "gracefully" without explaining what the fallback does, what it costs, or how to respond.
+
+### What + When (Lifecycle/Deployment)
+
+Capture processes, triggers, schedules, and deployment mechanics — distinct from static configuration.
+
+**Good:**
+> Database migrations run automatically during deploy via the `migrate` init container, which executes before the app container starts. Migrations are sequential (files named `V001__create_users.sql`). Rollback: there is no automatic rollback — failed migrations halt the deploy and require manual intervention via `flyway repair`. Schema changes that break backward compatibility must be split across two deploys: (1) add new column with default, (2) remove old column after all pods are on new code.
+
+**Bad:**
+> Database migrations are run during deployment. The system uses Flyway for migration management.
+
+The bad example names the tool but omits the mechanism, ordering, failure behavior, and the critical two-phase migration strategy.
+
+### What + Constraints (Schemas / Models)
+
+Capture data shapes, validation rules, invariants, and the relationships between models — not just field lists.
+
+**Good:**
+> The `Order` model enforces these invariants:
+>
+> | Field | Type | Constraint | Why |
+> |---|---|---|---|
+> | `status` | enum | `created -> paid -> shipped -> delivered` | Transitions are one-directional; no skipping steps |
+> | `total_cents` | int | Must equal sum of `line_items.price_cents * quantity` | Denormalized for query speed; recomputed on line item change |
+> | `customer_id` | FK | Must reference active customer | Prevents orders for deactivated accounts |
+>
+> The `status` transition is enforced in `Order.transition_to()` — direct field assignment raises `InvalidTransitionError`.
+
+**Bad:**
+> The Order model has fields: id (int), status (string), total_cents (int), customer_id (int), created_at (datetime).
+
+The bad example is a field list. It says nothing about invariants, transitions, or why the fields exist.
+
+## Applying Multiple Capture Rules in One Note
+
+Most notes benefit from combining several lenses. Here is an example note that uses four capture types together:
+
+```markdown
+> **Navigation:** Up: [Data Pipeline](../index.md) | Prev: [Ingestion](./01-ingestion.md) | Next: [Output](./03-output.md)
+
+# Transformation Engine
+
+The transformation engine converts raw event payloads into normalized records
+stored in the analytics warehouse.
+
+## Architecture Decision (What + Why)
+
+The engine uses a pull-based model: workers poll SQS rather than receiving
+pushed messages. This was chosen over SNS fan-out because (1) individual
+transforms vary wildly in cost (10ms to 30s), and (2) pull-based allows
+per-worker concurrency control via `MAX_INFLIGHT` without a separate
+rate-limiter.
+
+## Data Flow (What + Where)
+
+Raw event lands in `raw_events` SQS queue -> worker calls
+`TransformRouter.route(event)` to select the correct transformer ->
+transformer outputs a `NormalizedRecord` -> record is batch-written to
+the `analytics.events` table every 500 records or 10 seconds (whichever
+comes first) via `BatchWriter`.
+
+## Configuration (What + When)
+
+| Variable | Default | When to Change |
+|---|---|---|
+| `MAX_INFLIGHT` | 5 | If transforms are I/O-bound, increase to 15 |
+| `BATCH_SIZE` | 500 | Lower to 100 for debugging; never above 1000 (DynamoDB limit) |
+| `BATCH_TIMEOUT_SECS` | 10 | Lower in latency-sensitive environments |
+
+## Error Handling (What + What-If)
+
+If a transform raises an unhandled exception, the message is sent to
+`raw_events_dlq` after 3 delivery attempts. Alert: `dlq.message.count > 0`.
+Operator action: inspect the DLQ message, fix the transformer, then replay
+via `cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts nav`
+to rebuild navigation after documenting the fix.
+```
+
+## Content Rules
+
+- **Lead with "What is it?"** — one-paragraph summary at the top of every note.
+- **Prefer tables over prose** for structured data (config fields, API endpoints, database schemas, status codes, comparisons).
+- **Code snippets** — use sparingly. Only for schemas, key data structures, or non-obvious patterns. Never paste entire files.
 - **No filler** — no "In this section we will..." intros. Get to the point.
+- **Architecture diagrams** — use Excalidraw (see Diagrams section). **Never use ASCII art** for architecture, data flow, or state machine diagrams. ASCII art is only acceptable for directory tree listings.
 - **Text fallback for diagrams** — every diagram must have a written description below it that conveys the same information. Readers with broken images should still understand the architecture.
-- **Architecture diagrams** — every note MUST include Excalidraw diagrams (see Diagrams section). **NEVER use ASCII art** for architecture, data flow, or state machine diagrams. ASCII art is ONLY acceptable for directory tree listings.
+- **Key Files table** — end each note with a table mapping files to their purpose.
 
-## What to capture
+## Anti-Patterns
 
-- Architecture and data flow (how pieces connect)
-- Schemas and data models (database, protobuf, type definitions)
-- API surfaces (endpoints, gRPC services, MCP tools)
-- Configuration (env vars, config structs, defaults)
-- Key design decisions and non-obvious patterns
-- Integration points between systems
+These are common mistakes that produce low-value notes. Each includes a bad example and the fix.
 
-## What NOT to capture
+### 1. Vague labeling without insight
 
-- Line-by-line code walkthroughs (the code is the source of truth)
-- Obvious implementation details derivable from reading the code
-- Temporary debugging notes or TODOs
-- Duplicated content across notes — link to the canonical note instead
+**Bad:**
+> This module handles authentication and authorization.
+
+**Fix:**
+> The auth module validates JWTs on every request via `AuthMiddleware`, checks role-based permissions against the `permissions` table, and issues new token pairs through `POST /auth/refresh`. It does NOT handle user registration (that is in the `accounts` service).
+
+### 2. Listing files without saying what is interesting
+
+**Bad:**
+> Key files: `handler.py`, `service.py`, `models.py`, `utils.py`, `config.py`
+
+**Fix:**
+> | File | What is interesting |
+> |---|---|
+> | `handler.py` | Routes requests but also contains the rate-limit decorator — easy to miss |
+> | `service.py` | The `process()` method has a hidden retry loop (L45-60) that masks transient errors |
+> | `models.py` | `Order.total_cents` is denormalized; recomputed in `recalculate_total()` on every line-item change |
+
+### 3. Describing config without saying when to change
+
+**Bad:**
+> `WORKER_COUNT` controls the number of worker threads (default: 4).
+
+**Fix:**
+> `WORKER_COUNT` (default: 4) — increase to 8-16 for CPU-bound workloads on machines with 8+ cores. Keep at 4 or lower for I/O-bound tasks to avoid thread contention. Monitor `worker.idle_pct`; if consistently >50%, reduce count.
+
+### 4. Architecture diagrams that are just labeled boxes
+
+**Bad:**
+> A diagram showing "Frontend", "Backend", "Database" as three boxes with arrows.
+
+**Fix:**
+> Show what travels along each arrow (HTTP/JSON, gRPC/protobuf, SQL), what triggers the flow (user click, cron job, webhook), and where failures are caught. Label the arrows, not just the boxes.
+
+### 5. "See code for details"
+
+**Bad:**
+> The retry logic is complex. See `retry.py` for details.
+
+**Fix:**
+> Retries use exponential backoff: 1s, 2s, 4s up to 30s cap, with 0-25% jitter. Non-retryable errors (4xx) are excluded via `is_retryable()`. After max attempts, the error propagates to the caller wrapped in `MaxRetriesExceeded`. See `retry.py:RetryPolicy` for the implementation.
+
+### 6. Prose where a table would be clearer
+
+**Bad:**
+> The API returns 200 for success, 400 for bad input, 401 for missing auth, 403 for insufficient permissions, 404 when the resource does not exist, and 429 when the rate limit is exceeded.
+
+**Fix:**
+> | Status | Meaning | Common Cause |
+> |---|---|---|
+> | 200 | Success | — |
+> | 400 | Bad input | Missing required field, invalid enum value |
+> | 401 | Missing auth | Expired or missing JWT |
+> | 403 | Forbidden | User lacks required role |
+> | 404 | Not found | Deleted resource or wrong ID format |
+> | 429 | Rate limited | >100 req/min per API key |
+
+### 7. Copying docstrings verbatim
+
+**Bad:**
+> `process_event(event: Event) -> Result`: Processes an event and returns a Result.
+
+**Fix:**
+> `process_event()` is the main entry point for the worker loop. It deserializes the SQS message, routes to the correct handler based on `event.type`, and wraps the result in a `Result` that includes timing metrics. It is NOT idempotent — duplicate delivery causes duplicate processing (tracked in issue #1234).
 
 ## Diagrams (Excalidraw)
 
-Every note MUST include at least one Excalidraw diagram.
+Notes should include Excalidraw diagrams where visual representation adds clarity beyond what text provides.
 
-### Requirements
+### Content-Type to Diagram-Style Mapping
 
-- **Multiple diagrams per note** — use more than one when covering distinct concepts (e.g., architecture overview + data flow + state machine).
-- **File format**: `.excalidraw` JSON files stored alongside the note. For multiple: `01-name-architecture.excalidraw`, `01-name-dataflow.excalidraw`
-- **Embedded in markdown**: `![Diagram description](./filename.png)` — the renderer outputs `.png` (NOT `.excalidraw.png`)
-- **PNG rendering**: `cd ~/.claude/skills/excalidraw-diagram/references && uv run python render_excalidraw.py <path>`
-- **Render-view-fix loop**: Render, view PNG, fix issues, re-render. Mandatory.
-- **Subagent rendering**: Sub-agents may lack bash permissions. Parent session renders centrally after they create JSON.
+| Content Type | Diagram Style | When to Use |
+|---|---|---|
+| Architecture overview | Component diagram with labeled connections | Showing system boundaries and communication protocols |
+| Data flow | Left-to-right flow with transformation steps | Tracing data from input to storage |
+| State machines | State nodes with labeled transitions | Documenting status fields or workflow stages |
+| Request lifecycle | Vertical sequence diagram | Showing order of operations across services |
+| Schema relationships | Entity-relationship diagram | Mapping foreign keys and model associations |
+| Deployment topology | Infrastructure diagram with environments | Showing where services run and how they connect |
+| Decision trees | Branching flowchart | Documenting conditional logic or routing rules |
+| Timeline / lifecycle | Horizontal timeline with milestones | Showing deployment phases, migration steps, or event ordering |
 
-### Style
+### File Format
 
-- `roughness: 0` (clean/modern), `fontFamily: 3`, `opacity: 100`
-- Diagrams should ARGUE visually — show relationships and flow, not just labeled boxes
+- Store `.excalidraw` JSON files alongside the note they belong to
+- Naming: `<note-number>-<topic>-<diagram-type>.excalidraw` (e.g., `01-auth-architecture.excalidraw`, `01-auth-dataflow.excalidraw`)
+- Embed in markdown as: `![Description](./filename.png)` — the renderer outputs `.png` (not `.excalidraw.png`)
+- Multiple diagrams per note are encouraged when covering distinct concepts
+
+### Style Rules
+
+- `roughness: 0` (clean lines), `fontFamily: 3` (monospace), `opacity: 100`
+- Diagrams must **argue visually** — show relationships and flow, not just labeled boxes
 - Use shape variety: fan-out, convergence, timelines, cycles
-- Clear flow direction (left→right or top→bottom)
-- Hero element (most important) gets the most whitespace
+- Clear flow direction: left-to-right or top-to-bottom
+- Hero element (most important component) gets the most whitespace
+- Label arrows with what travels along them (protocol, data format, trigger)
+
+### Rendering
+
+Render diagrams to PNG:
+
+```bash
+cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts render
+```
+
+After rendering, view the PNG to verify correctness. Fix and re-render as needed.
+
+Sub-agents may lack bash permissions. In that case, the parent session renders centrally after sub-agents create the `.excalidraw` JSON files.
 
 ## Git Freshness Tracking
 
@@ -76,37 +337,59 @@ Every note MUST include YAML frontmatter linking it to the source code it docume
 ```yaml
 ---
 git_tracked_paths:
-  - path: agent/src/agent/agents/ac/
+  - path: src/auth/
     commit: a1b2c3d
-  - path: agent/src/agent/core/
-    commit: a1b2c3d
-last_updated: 2026-03-16
+  - path: src/middleware/
+    commit: f4e5d6c
+last_updated: 2026-03-18
 ---
 ```
 
-- **`path`**: Relative path to the source directory this note covers
-- **`commit`**: Short hash from `git log -1 --format=%h -- <path>` when the note was written/updated
-- **`last_updated`**: Date the note content was last revised
-- Multiple paths can be tracked per note (for notes covering multiple source areas)
+- **`path`**: relative path (from repo root) to the source directory this note covers
+- **`commit`**: short hash from `git log -1 --format=%h -- <path>` when the note was written or updated
+- **`last_updated`**: date the note content was last revised
+- Multiple paths per note are supported for notes covering multiple source areas
 
 ### Checking Freshness
 
+Run the staleness checker to find notes that may need updating:
+
 ```bash
-git diff --name-only <commit> HEAD -- <path>
+cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts stale
 ```
 
-- **No changes** → note is fresh
-- **Minor changes** → note likely accurate, verify specifics
-- **Major changes** → note needs updating
+This compares each note's tracked commit against the current HEAD for those paths and reports which notes have fallen behind.
 
-### Updating
+### Updating Rules
 
-When updating a note, always update both the `commit` hash and `last_updated` date in frontmatter.
+When updating a note after source code changes:
+
+1. Re-read the changed source files to understand what changed
+2. Update the note content to reflect the changes
+3. Update the `commit` hash to the current HEAD for each tracked path
+4. Update the `last_updated` date
+5. Re-render any affected diagrams
 
 ## Maintenance
 
-- When exploring a new topic, update `00-overview.md` to link the new folder
-- When adding a child note, update the parent `index.md` sub-topics list and sibling nav links
-- When information becomes stale, update or delete — don't leave outdated notes
-- Prefer updating existing notes over creating new ones for the same topic
-- After any code exploration that reveals new information, update the relevant note and its git tracking
+- **Update overview**: when exploring a new topic, update `00-overview.md` to link the new folder
+- **Update parent links**: when adding a child note, update the parent `index.md` sub-topics list
+- **Prefer updates over new notes**: if a note already covers the topic, update it rather than creating a duplicate
+- **Delete stale notes**: when information becomes obsolete, remove the note rather than leaving it to mislead
+- **Rebuild navigation** after adding, removing, or renaming notes:
+
+```bash
+cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts nav
+```
+
+- **Re-render diagrams** after modifying any `.excalidraw` file:
+
+```bash
+cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts render
+```
+
+- **Check freshness** periodically to catch notes that have drifted from the source:
+
+```bash
+cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts stale
+```
