@@ -36,6 +36,14 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts &&
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
 
+## Step 0.5: Ensure index.md exists
+
+Run scaffold to ensure `index.md` and all subdirectories exist (idempotent — safe for already-initialized repos):
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
+```
+
 ## Step 1: Read Overview
 
 ```

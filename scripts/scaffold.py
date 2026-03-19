@@ -12,6 +12,41 @@ from scripts.repo_id import resolve_repo_id
 REPO_NOTES_BASE = Path.home() / ".claude" / "repo_notes"
 REFERENCES_DIR = Path(__file__).resolve().parent.parent / "references"
 
+INDEX_CONTENT = """\
+# Codebase Notes
+
+This directory contains structured knowledge about the repository, organized into four areas:
+
+## `notes/`
+
+Architecture and design notes about the codebase itself. Each note covers a topic
+(API layer, data models, auth system, etc.) with Excalidraw diagrams, key file references,
+and links to related notes. Start with `notes/00-overview.md` for the knowledge map.
+
+Managed by: `/codebase-notes:init`, `/codebase-notes:explore`, `/codebase-notes:update`
+
+## `commits/`
+
+Structured summaries of recent git activity, grouped by author and code area.
+Useful for onboarding, understanding what changed recently, or preparing release notes.
+
+Managed by: `/codebase-notes:commits`
+
+## `research/`
+
+Notes from external sources — papers, articles, blog posts, and documentation.
+Organized by topic with relevance tags linking back to codebase areas.
+
+Managed by: `/codebase-notes:research`
+
+## `projects/`
+
+Brainstorming, planning, and tracking notes for ongoing projects within the codebase.
+Each project gets its own subdirectory with design docs, open questions, and decision logs.
+
+Managed by: `/codebase-notes:project`
+"""
+
 OVERVIEW_SKELETON = """\
 ---
 git_tracked_paths: []
@@ -71,6 +106,10 @@ def scaffold_repo(repo_id: str, clone_path: str) -> None:
     overview = notes_dir / "00-overview.md"
     if not overview.exists():
         overview.write_text(OVERVIEW_SKELETON.format(today=date.today().isoformat()))
+
+    index_file = repo_dir / "index.md"
+    if not index_file.exists():
+        index_file.write_text(INDEX_CONTENT)
 
     _register_clone_path(repo_dir, clone_path)
 
