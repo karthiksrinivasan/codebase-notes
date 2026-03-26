@@ -155,6 +155,23 @@ def _build_commits_table(section_dir: Path, repo_dir: Path) -> list[str]:
     return rows
 
 
+def _build_code_reviews_table(section_dir: Path, repo_dir: Path) -> list[str]:
+    """Build table rows for the code-reviews/ directory."""
+    rows: list[str] = []
+    for review_dir in sorted(section_dir.iterdir()):
+        if not review_dir.is_dir():
+            continue
+        context_file = review_dir / "context.md"
+        review_file = review_dir / "review.md"
+        identifier = review_dir.name
+        # Extract title from context.md if it exists
+        title = _extract_title(context_file) if context_file.is_file() else identifier
+        has_review = "yes" if review_file.is_file() else "no"
+        rel_context = context_file.relative_to(repo_dir) if context_file.is_file() else f"code-reviews/{identifier}/context.md"
+        rows.append(f"| {rel_context} | {title} | {has_review} |")
+    return rows
+
+
 def _generate_index(repo_id: str, repo_dir: Path) -> str:
     """Generate the full markdown index content."""
     staleness_map = _load_staleness_map(repo_dir)
@@ -210,6 +227,17 @@ def _generate_index(repo_id: str, repo_dir: Path) -> str:
             parts.append("## commits/")
             parts.append("| Path | Author | Area |")
             parts.append("|------|--------|------|")
+            parts.extend(rows)
+            parts.append("")
+
+    # code-reviews/
+    code_reviews_dir = repo_dir / "code-reviews"
+    if code_reviews_dir.is_dir():
+        rows = _build_code_reviews_table(code_reviews_dir, repo_dir)
+        if rows:
+            parts.append("## code-reviews/")
+            parts.append("| Path | Title | Reviewed |")
+            parts.append("|------|-------|----------|")
             parts.extend(rows)
             parts.append("")
 
