@@ -15,7 +15,7 @@ REFERENCES_DIR = Path(__file__).resolve().parent.parent / "references"
 INDEX_CONTENT = """\
 # Codebase Notes
 
-This directory contains structured knowledge about the repository, organized into four areas:
+This directory contains structured knowledge about the repository, organized into five areas:
 
 ## `notes/`
 
