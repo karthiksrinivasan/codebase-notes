@@ -123,6 +123,12 @@ glab mr view <number> --output json
 
 Extract: title, description, base branch, head branch, files changed.
 
+After extracting the head branch, fetch the latest commits:
+
+```bash
+git fetch origin <head_branch> 2>/dev/null || true
+```
+
 **If branch name:**
 
 ```bash
@@ -137,14 +143,21 @@ Use the detected base branch for all diffs.
 
 ### Step 2: Gather the Diff
 
-Always use three-dot diff (`...`) — this shows only the changes introduced by the branch, excluding unrelated commits merged into the base since the branch diverged.
+Compute the merge base to get only changes introduced by the branch, excluding unrelated commits merged into the base since the branch diverged.
 
 ```bash
-# For both PR and branch:
-git log <base>...<head> --oneline
-git diff <base>...<head> --stat
-git diff <base>...<head>
+# Compute the common ancestor
+MERGE_BASE=$(git merge-base <base> <head>)
+
+# Log: two-dot shows commits on head not on base
+git log $MERGE_BASE..<head> --oneline --no-merges
+
+# Diff: from merge-base to head shows only the branch's changes
+git diff $MERGE_BASE <head> --stat
+git diff $MERGE_BASE <head>
 ```
+
+**Note:** `git log` uses two-dot (`..`) for "commits reachable from head but not base." `git diff` takes two refs directly (from merge-base to head). Do NOT use three-dot (`...`) — it has different semantics for `git log` vs `git diff` and can produce incorrect results.
 
 **Large diff handling (>2000 lines):**
 1. Start with `--stat` to get the file list and change counts
@@ -224,6 +237,14 @@ What patterns does it follow or introduce?
 If the change touches architectural boundaries (crosses between major components visible in the overview diagram), include an Excalidraw diagram showing the impact. Otherwise, skip diagrams for context.md.
 
 ### Step 5: Write review.md
+
+**Severity definitions** used across all personas:
+
+| Severity | Meaning | Action |
+|----------|---------|--------|
+| `critical` | Blocks merge — correctness bug, data loss risk, security issue | Must fix before merge |
+| `suggestion` | Should address — design concern, maintainability issue, missing test | Address before merge if feasible |
+| `nit` | Optional improvement — style, naming, minor cleanup | Fix if convenient, skip if not |
 
 Create `~/.claude/repo_notes/<repo_id>/code-reviews/<slug>/review.md`:
 
@@ -448,7 +469,19 @@ None.
 2. Verify the review exists — if not, suggest `new`
 3. Re-gather the diff (it may have changed if new commits were pushed)
 4. Read existing review.md for prior findings
-5. If `--focus` is provided, re-run only the relevant personas with attention to that area
+5. If `--focus` is provided, re-run the relevant personas with extra attention to that area:
+
+   | Focus Area | Primary Personas | Secondary |
+   |-----------|-----------------|-----------|
+   | error handling, edge cases | Adversarial Path Tracer | Systems Architect |
+   | performance, scalability | Systems Architect | Adversarial Path Tracer |
+   | standards, style, conventions | Standards Compliance | — |
+   | domain logic, correctness | Domain Expert | Adversarial Path Tracer |
+   | architecture, design | Systems Architect | Domain Expert |
+   | security | Adversarial Path Tracer | Standards Compliance |
+
+   Always run the primary persona(s). Run secondary if the focus area overlaps.
+
 6. If no `--focus`, re-run all four personas with the updated diff
 7. Update both `context.md` and `review.md` with new findings
 8. Update `last_updated` and `status` in frontmatter
