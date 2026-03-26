@@ -45,6 +45,15 @@ Brainstorming, planning, and tracking notes for ongoing projects within the code
 Each project gets its own subdirectory with design docs, open questions, and decision logs.
 
 Managed by: `/codebase-notes:project`
+
+## `code-reviews/`
+
+Multi-persona code reviews for PRs and feature branches. Each review contains
+onboarding context (pre-reqs, motivation, scope) and structured feedback from
+four review personas: Systems Architect, Domain Expert, Standards Compliance,
+and Adversarial Path Tracer.
+
+Managed by: `/codebase-notes:code-review`
 """
 
 OVERVIEW_SKELETON = """\
@@ -93,10 +102,13 @@ def scaffold_repo(repo_id: str, clone_path: str) -> None:
     research_dir = repo_dir / "research"
     projects_dir = repo_dir / "projects"
 
+    code_reviews_dir = repo_dir / "code-reviews"
+
     notes_dir.mkdir(parents=True, exist_ok=True)
     commits_dir.mkdir(parents=True, exist_ok=True)
     research_dir.mkdir(parents=True, exist_ok=True)
     projects_dir.mkdir(parents=True, exist_ok=True)
+    code_reviews_dir.mkdir(parents=True, exist_ok=True)
 
     rules_dest = notes_dir / "RULES.md"
     rules_src = REFERENCES_DIR / "RULES-template.md"
@@ -110,6 +122,20 @@ def scaffold_repo(repo_id: str, clone_path: str) -> None:
     index_file = repo_dir / "index.md"
     if not index_file.exists():
         index_file.write_text(INDEX_CONTENT)
+
+    # Patch existing index.md to include code-reviews section if missing
+    if index_file.exists():
+        content = index_file.read_text(encoding="utf-8")
+        if "code-reviews" not in content:
+            code_reviews_section = (
+                '\n## `code-reviews/`\n\n'
+                'Multi-persona code reviews for PRs and feature branches. Each review contains\n'
+                'onboarding context (pre-reqs, motivation, scope) and structured feedback from\n'
+                'four review personas: Systems Architect, Domain Expert, Standards Compliance,\n'
+                'and Adversarial Path Tracer.\n\n'
+                'Managed by: `/codebase-notes:code-review`\n'
+            )
+            index_file.write_text(content + code_reviews_section, encoding="utf-8")
 
     _register_clone_path(repo_dir, clone_path)
 
