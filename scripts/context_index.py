@@ -159,15 +159,17 @@ def _build_code_reviews_table(section_dir: Path, repo_dir: Path) -> list[str]:
     """Build table rows for the code-reviews/ directory."""
     rows: list[str] = []
     for review_dir in sorted(section_dir.iterdir()):
-        if not review_dir.is_dir():
+        if not review_dir.is_dir() or review_dir.name.startswith("."):
             continue
         context_file = review_dir / "context.md"
         review_file = review_dir / "review.md"
         identifier = review_dir.name
-        # Extract title from context.md if it exists
         title = _extract_title(context_file) if context_file.is_file() else identifier
         has_review = "yes" if review_file.is_file() else "no"
-        rel_context = context_file.relative_to(repo_dir) if context_file.is_file() else f"code-reviews/{identifier}/context.md"
+        if context_file.is_file():
+            rel_context = context_file.relative_to(repo_dir)
+        else:
+            rel_context = (section_dir / identifier / "context.md").relative_to(repo_dir)
         rows.append(f"| {rel_context} | {title} | {has_review} |")
     return rows
 
