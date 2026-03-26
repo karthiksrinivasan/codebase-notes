@@ -50,8 +50,8 @@ Managed by: `/codebase-notes:project`
 
 Multi-persona code reviews for PRs and feature branches. Each review contains
 onboarding context (pre-reqs, motivation, scope) and structured feedback from
-four review personas: Systems Architect, Domain Expert, Standards Compliance,
-and Adversarial Path Tracer.
+five review personas: Systems Architect, Domain Expert, Standards Compliance,
+Adversarial Path Tracer, and Build & Runtime Verifier.
 
 Managed by: `/codebase-notes:code-review`
 """

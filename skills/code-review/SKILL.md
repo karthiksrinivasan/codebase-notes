@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review PRs and feature branches with multi-persona analysis. Generates onboarding context and structured reviews from four perspectives: Systems Architect, Domain Expert, Standards Compliance, and Adversarial Path Tracer.
+description: Review PRs and feature branches with multi-persona analysis. Generates onboarding context and structured reviews from five perspectives: Systems Architect, Domain Expert, Standards Compliance, Adversarial Path Tracer, and Build & Runtime Verifier.
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "WebFetch"]
 ---
 
@@ -10,7 +10,7 @@ allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "WebFe
 
 Review PRs and feature branches with structured, multi-persona analysis. Each review produces two artifacts:
 - **context.md** — onboarding context a new engineer needs to understand the change
-- **review.md** — structured review from four specialist personas
+- **review.md** — structured review from five specialist personas
 
 ## Subcommands
 
@@ -282,23 +282,32 @@ on large-scale distributed systems. Consider:
 
 ## 2. Domain Expert
 
-**Focus:** Domain correctness — does this change make sense in the problem domain?
+**Focus:** Domain correctness AND cross-layer semantic reasoning — does the data mean what it should at every stage?
 
 Read the repo's README, CLAUDE.md, and relevant domain-specific notes to understand
-what domain this repo operates in. Review the change for domain-specific correctness:
+what domain this repo operates in. Review the change at two levels:
 
+**Surface-level domain checks:**
 - Are domain concepts used correctly?
 - Do naming conventions match domain terminology?
 - Are domain invariants preserved?
 - Would a domain expert find the implementation sensible?
 
+**Cross-layer semantic reasoning (critical — this catches bugs static analysis cannot):**
+- Trace data as it flows between layers (API → service → storage → output). At each boundary, ask: *does this transformation preserve the data's domain meaning?*
+- Flag normalization, aggregation, or projection steps that destroy domain-meaningful information (e.g., L2-normalizing physics embeddings destroys magnitude, averaging compositions loses phase data)
+- Check that filters, scopes, and thresholds match the actual domain of the data (e.g., "novelty vs. literature" scope ≠ "novelty vs. all embeddings" scope)
+- Verify that labels, descriptions, and user-facing text accurately describe what the code does (e.g., if the prompt says "literature" but the code queries all data)
+- When data has provenance (who produced it, in what order), check that operations preserve or explicitly discard provenance — silent provenance loss is a bug
+
 **Note:** The domain is inferred from the repo's documentation and existing codebase-notes.
 For a materials science repo, this means checking units, physical constraints, experiment
-terminology, etc. For a web app, this means checking business logic, user flows, etc.
+terminology, phase data, composition semantics, etc. For a web app, this means checking
+business logic, user flows, authorization scope, etc.
 
 ### Findings
 
-<Structured findings with domain-specific concerns>
+<Structured findings with domain-specific concerns — cross-layer findings should include the specific layer boundary where meaning is lost>
 
 ### Verdict
 
@@ -338,28 +347,109 @@ and any `CONTRIBUTING.md`. Check the change against these standards:
 
 ## 4. Adversarial Path Tracer
 
-**Focus:** Runtime edge cases, error propagation, correctness under unusual inputs.
+**Focus:** Runtime edge cases, error propagation, correctness under unusual inputs, behavioral side effects on existing code, and order-of-operations hazards.
 
-Trace through the code paths introduced or modified by this change and look for:
+Trace through the code paths introduced or modified by this change. Check three categories:
 
+**A. Edge cases and error propagation (standard):**
 - What happens with nil/null/None/empty inputs?
 - Are error paths handled? Do errors propagate correctly?
-- Are there race conditions or concurrency issues?
 - What happens at boundary values (0, max_int, empty list, huge input)?
 - Are there implicit assumptions that could break?
 - Does the change handle partial failures gracefully?
+
+**B. Behavioral side effects on existing code (critical — this catches the bugs that "it works in isolation" testing misses):**
+- Find every caller/consumer of functions modified by this change. Read them. Ask: *does the behavior change break any caller's assumptions?*
+- If a function's return type, side effects, or error behavior changed, trace every call site
+- If a new feature auto-activates (e.g., a flag defaults to true, a new hook runs unconditionally), check what it does to existing workflows
+- If a public API endpoint or tool is added, verify it actually works end-to-end — not just that the code exists, but that the wiring (routes, registrations, deps) is complete
+- Check for "silent activation" — features that activate with empty/default inputs when the user expects them to be inert
+
+**C. Order-of-operations and timing hazards (critical — these cause intermittent, hard-to-reproduce bugs):**
+- Does the code write before acquiring a lock?
+- Does the code read state that might be stale (cached values, on-disk artifacts from a previous version)?
+- Does the code advance a cursor/pointer/offset before confirming the current operation succeeded?
+- Does the code write to storage before ensuring prerequisite structures (indexes, directories, schemas) exist?
+- Are there race conditions between concurrent readers/writers?
 
 ### Traced Paths
 
 For each significant code path in the change:
 
-| Path | Input Condition | Expected Behavior | Actual Behavior | Issue? |
-|------|----------------|-------------------|-----------------|--------|
-| <function/endpoint> | <edge case> | <what should happen> | <what the code does> | <yes/no + details> |
+| Path | Input Condition | Expected Behavior | Potential Behavior | Issue? |
+|------|----------------|-------------------|--------------------|--------|
+| <function/endpoint> | <edge case> | <what should happen> | <what the code might do> | <yes/no + details> |
+
+### Caller Impact
+
+For each modified function with external callers:
+
+| Modified Function | Caller | Assumption That May Break | Severity |
+|------------------|--------|--------------------------|----------|
+| <function> | <caller file:line> | <what the caller assumes> | <critical/suggestion> |
 
 ### Findings
 
 <Structured findings — each with a concrete scenario that triggers the issue>
+
+### Verdict
+
+<Overall assessment from this persona>
+
+---
+
+## 5. Build & Runtime Verifier
+
+**Focus:** Does this code actually run? Verify by executing — not by reading.
+
+This persona catches the class of bugs that are invisible to static analysis:
+missing dependencies, broken imports, failing tests, type-checker errors, and
+linter violations. **You MUST run commands, not just read code.**
+
+**Step 1: Dependency check**
+- Read `pyproject.toml`, `requirements.txt`, `package.json`, `Cargo.toml`, or equivalent
+- For every new import in the diff, verify the package is declared as a dependency
+- Run: `uv run python -c "import <new_module>"` (or equivalent) to confirm imports resolve
+- Check for packages in `[optional-dependencies]` that should be in `[dependencies]` (or vice versa)
+
+**Step 2: Type-checker / linter pass**
+- Identify the repo's configured linters from CI config, `pyproject.toml`, `package.json` scripts, or `pre-commit-config.yaml`
+- Run the linter on changed files only:
+  ```bash
+  # Python example — adapt to repo's actual toolchain
+  uv run ruff check <changed_files>
+  uv run ty check <changed_files>  # or mypy/pyright
+  ```
+- Report any errors or warnings. Flag unused `type: ignore` / `noqa` comments that suppress warnings for issues no longer present.
+
+**Step 3: Test execution**
+- Run tests related to the changed code:
+  ```bash
+  # Find and run relevant tests
+  uv run pytest <test_files_matching_changed_code> -x -v
+  ```
+- If tests pass, check: do they actually test the new behavior, or are they testing something else and passing coincidentally?
+- If tests fail, report the failure with full traceback
+- Check for tests that contradict the implementation (test asserts X, code does Y, test still passes because of mocking)
+
+**Step 4: Build / artifact verification**
+- If the change adds CLI commands, run them with `--help` to verify they're wired up
+- If the change modifies build configuration, run the build
+- If the change adds API endpoints or tools, verify they're registered (not just defined)
+
+### Execution Results
+
+| Check | Command | Result | Issues |
+|-------|---------|--------|--------|
+| Dependency resolution | `uv run python -c "import X"` | pass/fail | <details> |
+| Type checker | `uv run ty check file.py` | pass/fail | <details> |
+| Linter | `uv run ruff check file.py` | pass/fail | <details> |
+| Tests | `uv run pytest test_file.py` | pass/fail | <details> |
+| Build / wiring | `<command>` | pass/fail | <details> |
+
+### Findings
+
+<Structured findings — each with the exact command that revealed the issue and its output>
 
 ### Verdict
 
@@ -375,6 +465,7 @@ For each significant code path in the change:
 | Domain Expert | <pass/concerns/block> | <count> | <count> |
 | Standards Compliance | <pass/concerns/block> | <count> | <count> |
 | Adversarial Path Tracer | <pass/concerns/block> | <count> | <count> |
+| Build & Runtime Verifier | <pass/concerns/block> | <count> | <count> |
 
 ## Recommended Actions
 
@@ -475,10 +566,12 @@ None.
    |-----------|-----------------|-----------|
    | error handling, edge cases | Adversarial Path Tracer | Systems Architect |
    | performance, scalability | Systems Architect | Adversarial Path Tracer |
-   | standards, style, conventions | Standards Compliance | — |
+   | standards, style, conventions | Standards Compliance | Build & Runtime Verifier |
    | domain logic, correctness | Domain Expert | Adversarial Path Tracer |
    | architecture, design | Systems Architect | Domain Expert |
    | security | Adversarial Path Tracer | Standards Compliance |
+   | dependencies, imports, build | Build & Runtime Verifier | Standards Compliance |
+   | tests, regressions | Build & Runtime Verifier | Adversarial Path Tracer |
 
    Always run the primary persona(s). Run secondary if the focus area overlaps.
 
