@@ -800,8 +800,10 @@ None.
    Use the script for deterministic delta computation:
 
    ```bash
-   export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts review-delta --old-head <DIFF_BASE> --new-head <NEW_HEAD_SHA> --merge-base <MERGE_BASE_SHA>
+   export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts review-delta --old-head <DIFF_BASE> --new-head <NEW_HEAD_SHA> --merge-base <MERGE_BASE_SHA> --old-merge-base <OLD_MERGE_BASE_SHA>
    ```
+
+   Where `<OLD_MERGE_BASE_SHA>` is the `merge_base_sha` read from existing review.md frontmatter in step 4.
 
    The script returns JSON with: `tree_identical`, `history_rewritten`, `old_head_gc`, `merge_base_drift`, `changed_files`.
 

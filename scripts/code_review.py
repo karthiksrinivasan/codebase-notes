@@ -601,11 +601,12 @@ def _action_regenerate_fixlog(args) -> int:
     # Build the new Fix Log section
     fix_log_lines = ["## Fix Log", ""]
     if fix_entries:
-        fix_log_lines.append("| Finding | Severity | Status | Fix |")
-        fix_log_lines.append("|---------|----------|--------|-----|")
+        fix_log_lines.append("| Finding | Severity | Status | Fix Summary | Applied In |")
+        fix_log_lines.append("|---------|----------|--------|-------------|------------|")
         for entry in fix_entries:
+            applied_in = "\u2014" if entry["status"] == "deferred" else "\u2014"
             fix_log_lines.append(
-                f"| {entry['id']} | {entry['severity']} | {entry['status']} | {entry['fix']} |"
+                f"| {entry['id']} | {entry['severity']} | {entry['status']} | {entry['fix']} | {applied_in} |"
             )
     else:
         fix_log_lines.append("No fixed or deferred findings.")
