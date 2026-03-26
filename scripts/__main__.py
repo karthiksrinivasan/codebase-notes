@@ -70,6 +70,38 @@ def main() -> int:
     ctx_parser.add_argument("--filter-stdin", action="store_true", help="Filter by PostToolUse stdin input")
     ctx_parser.add_argument("--json-envelope", action="store_true", help="Wrap output in hook JSON format")
 
+    # review-preflight
+    preflight_parser = subparsers.add_parser("review-preflight", help="Check preconditions for a code review")
+    preflight_parser.add_argument("--review-dir", required=True, help="Path to the review directory")
+    preflight_parser.add_argument("--check-fix", action="store_true", help="Run fix-specific checks")
+
+    # review-delta
+    delta_parser = subparsers.add_parser("review-delta", help="Compute diff statistics between revisions")
+    delta_parser.add_argument("--old-head", required=True, help="Old HEAD SHA")
+    delta_parser.add_argument("--new-head", required=True, help="New HEAD SHA")
+    delta_parser.add_argument("--merge-base", required=True, help="Current merge base SHA")
+    delta_parser.add_argument("--old-merge-base", help="Previous merge base SHA (for drift detection)")
+
+    # review-status
+    status_parser = subparsers.add_parser("review-status", help="Manage review finding statuses")
+    status_parser.add_argument("--review-path", required=True, help="Path to review.md")
+    status_parser.add_argument("--action", required=True,
+                               choices=["assign-ids", "validate-transition",
+                                        "regenerate-fixlog", "regenerate-history-row",
+                                        "list-findings"],
+                               help="Action to perform")
+    status_parser.add_argument("--from", dest="from_status", help="Source status (for validate-transition)")
+    status_parser.add_argument("--to", dest="to_status", help="Target status (for validate-transition)")
+    status_parser.add_argument("--version", type=int, help="Version number (for regenerate-history-row)")
+    status_parser.add_argument("--trigger", help="Trigger text (for regenerate-history-row)")
+    status_parser.add_argument("--head-sha", help="HEAD SHA (for regenerate-history-row)")
+
+    # review-frontmatter
+    fm_parser = subparsers.add_parser("review-frontmatter", help="Read or update markdown frontmatter")
+    fm_parser.add_argument("--path", required=True, help="Path to .md file")
+    fm_parser.add_argument("--action", required=True, choices=["read", "update"], help="Action to perform")
+    fm_parser.add_argument("--set", action="append", help="KEY=VALUE pair (repeatable, for update)")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -92,6 +124,10 @@ def main() -> int:
         "stats": "scripts.stats",
         "verify-diagrams": "scripts.verify_diagrams",
         "context-index": "scripts.context_index",
+        "review-preflight": "scripts.code_review",
+        "review-delta": "scripts.code_review",
+        "review-status": "scripts.code_review",
+        "review-frontmatter": "scripts.code_review",
     }
 
     module_name = dispatch.get(args.command)
@@ -102,11 +138,19 @@ def main() -> int:
     try:
         import importlib
         mod = importlib.import_module(module_name)
-        # cron module has two entry points
+        # Modules with multiple entry points
         if args.command == "cron":
             return mod.run_cron(args)
         elif args.command == "auto-update":
             return mod.run_auto_update(args)
+        elif args.command == "review-preflight":
+            return mod.run_preflight(args)
+        elif args.command == "review-delta":
+            return mod.run_delta(args)
+        elif args.command == "review-status":
+            return mod.run_status(args)
+        elif args.command == "review-frontmatter":
+            return mod.run_frontmatter(args)
         else:
             return mod.run(args)
     except ImportError:
