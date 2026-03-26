@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import date
@@ -295,13 +296,9 @@ def run_preflight(args) -> int:
         remote_url = r_remote.stdout.strip() if r_remote.returncode == 0 else ""
         forge_cli = None
         if "github" in remote_url.lower():
-            chk = subprocess.run(["command", "-v", "gh"], capture_output=True, shell=True)
-            # shell=True won't work for `command -v`; use shutil.which instead
-            import shutil
             if shutil.which("gh"):
                 forge_cli = "gh"
         elif "gitlab" in remote_url.lower():
-            import shutil
             if shutil.which("glab"):
                 forge_cli = "glab"
         result["forge_cli"] = forge_cli
@@ -558,8 +555,12 @@ def _action_assign_ids(args) -> int:
 
 def _action_validate_transition(args) -> int:
     """Check whether a status transition is valid per the hardcoded matrix."""
-    from_status = args.from_status
-    to_status = args.to_status
+    from_status = getattr(args, "from_status", None)
+    to_status = getattr(args, "to_status", None)
+
+    if not from_status or not to_status:
+        print("error: --from and --to are required for validate-transition", file=sys.stderr)
+        return 1
 
     if from_status not in VALID_TRANSITIONS:
         print(f"invalid: unknown source status '{from_status}'")
@@ -639,9 +640,13 @@ def _action_regenerate_fixlog(args) -> int:
 def _action_regenerate_history_row(args) -> int:
     """Generate a markdown table row for the review history section."""
     review_path = Path(args.review_path)
-    version = args.version
-    trigger = args.trigger
-    head_sha = args.head_sha
+    version = getattr(args, "version", None)
+    trigger = getattr(args, "trigger", None)
+    head_sha = getattr(args, "head_sha", None)
+
+    if not version or not trigger or not head_sha:
+        print("error: --version, --trigger, and --head-sha are required for regenerate-history-row", file=sys.stderr)
+        return 1
 
     if not review_path.is_file():
         print(f"error: {review_path} not found", file=sys.stderr)
@@ -655,7 +660,7 @@ def _action_regenerate_history_row(args) -> int:
         "new": 0,
         "persists": 0,
         "resolved": 0,
-        "fixed": 0,
+        "missed": 0,
         "regressed": 0,
     }
     for f in findings:
@@ -667,8 +672,8 @@ def _action_regenerate_history_row(args) -> int:
     short_sha = head_sha[:7] if len(head_sha) >= 7 else head_sha
     row = (
         f"| v{version} | {today} | `{short_sha}` | {trigger} "
-        f"| {counts['new']} | {counts['persists']} | {counts['resolved']} "
-        f"| {counts['fixed']} | {counts['regressed']} |"
+        f"| {counts['new']} | {counts['resolved']} | {counts['persists']} "
+        f"| {counts['missed']} | {counts['regressed']} |"
     )
     print(row)
     return 0
