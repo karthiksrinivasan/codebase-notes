@@ -157,6 +157,8 @@ def _build_commits_table(section_dir: Path, repo_dir: Path) -> list[str]:
 
 def _build_code_reviews_table(section_dir: Path, repo_dir: Path) -> list[str]:
     """Build table rows for the code-reviews/ directory."""
+    from scripts.staleness import parse_frontmatter
+
     rows: list[str] = []
     for review_dir in sorted(section_dir.iterdir()):
         if not review_dir.is_dir() or review_dir.name.startswith("."):
@@ -166,11 +168,18 @@ def _build_code_reviews_table(section_dir: Path, repo_dir: Path) -> list[str]:
         identifier = review_dir.name
         title = _extract_title(context_file) if context_file.is_file() else identifier
         has_review = "yes" if review_file.is_file() else "no"
+        version = "\u2014"
+        status = "\u2014"
+        if review_file.is_file():
+            fm = parse_frontmatter(review_file)
+            if fm:
+                version = f"v{fm.get('current_version', '1')}"
+                status = fm.get("status", "\u2014")
         if context_file.is_file():
             rel_context = context_file.relative_to(repo_dir)
         else:
             rel_context = (section_dir / identifier / "context.md").relative_to(repo_dir)
-        rows.append(f"| {rel_context} | {title} | {has_review} |")
+        rows.append(f"| {rel_context} | {title} | {has_review} | {version} | {status} |")
     return rows
 
 
@@ -238,8 +247,8 @@ def _generate_index(repo_id: str, repo_dir: Path) -> str:
         rows = _build_code_reviews_table(code_reviews_dir, repo_dir)
         if rows:
             parts.append("## code-reviews/")
-            parts.append("| Path | Title | Reviewed |")
-            parts.append("|------|-------|----------|")
+            parts.append("| Path | Title | Reviewed | Version | Status |")
+            parts.append("|------|-------|----------|---------|--------|")
             parts.extend(rows)
             parts.append("")
 
