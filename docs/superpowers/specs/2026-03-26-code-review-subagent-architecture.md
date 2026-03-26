@@ -1,28 +1,43 @@
-# Code Review Skill: Sub-Agent Architecture Spec
+# Code Review Skill: Hybrid Architecture Spec
 
 **Date:** 2026-03-26
-**Status:** Draft
-**Goal:** Simplify SKILL.md from 1337 → ~400 lines by extracting review personas into sub-agents, fix logic into fix agents, and templates into files. Scripts handle deterministic ops.
+**Status:** Approved
+**Goal:** Simplify SKILL.md from 1337 → ~550 lines via hybrid approach: 4 read-only personas stay inline (cross-persona synergy), BRV + fix agents dispatched as sub-agents (tool isolation), templates and persona references extracted to files, scripts handle deterministic ops.
+
+---
+
+## Design Rationale
+
+A multi-persona review found that full sub-agent extraction (all 5 personas as agents) has critical DX tradeoffs:
+- **Cross-persona synergy lost** — personas can't see each other's findings when isolated
+- **No speed gain** — agent setup overhead + BRV dominates wall-clock time either way
+- **3-5x cost increase** — diff duplicated into 5 agent prompts
+- **Classification ambiguity** — `update` flow requires semantic matching that isolated agents can't do
+
+The hybrid approach keeps the strengths (shared context, streaming UX, no cost multiplier) while extracting only what genuinely benefits from isolation.
 
 ---
 
 ## Architecture Overview
 
-The code-review skill becomes a **pure orchestrator**. Judgment lives in sub-agents. State management lives in scripts. Templates live in files.
-
 ```
-SKILL.md (orchestrator, ~400 lines)
+SKILL.md (orchestrator + 4 inline personas, ~550 lines)
   ├── Gathers context (diff, notes, standards)
   ├── Calls scripts for deterministic ops
-  ├── Dispatches 5 persona sub-agents in parallel
-  ├── Dispatches fix-planner / fix-executor sub-agents
-  ├── Assembles final documents from results
+  ├── Runs SA, DE, SC, APT personas inline (shared context, cross-persona synergy)
+  ├── Dispatches BRV as sub-agent (needs Bash, verbose output isolated)
+  ├── Dispatches fix-planner / fix-executor as sub-agents
+  ├── Assembles final documents
   └── Manages user interaction (conflicts, approval)
 
-agents/ (7 sub-agents, ~470 lines total)
-  ├── 5 review personas (read-only analysis)
+personas/ (5 reference files, ~300 lines total)
+  ├── Read by SKILL.md for inline persona instructions
+  └── NOT dispatched as agents (except BRV)
+
+agents/ (3 sub-agents, ~200 lines total)
+  ├── review-build-runtime-verifier (Bash access, isolated output)
   ├── fix-planner (read-only analysis)
-  └── fix-executor (code changes + verification)
+  └── fix-executor (Write/Edit/Bash for code changes)
 
 templates/ (3 files, ~120 lines total)
   ├── review.md skeleton
@@ -39,300 +54,48 @@ scripts/code_review.py (existing, ~760 lines)
 ## File Structure
 
 ```
-codebase-notes/                               # plugin root
-├── agents/                                   # auto-discovered sub-agents
-│   ├── review-systems-architect.md
-│   ├── review-domain-expert.md
-│   ├── review-standards-compliance.md
-│   ├── review-adversarial-path-tracer.md
+codebase-notes/                                   # plugin root
+├── agents/                                       # auto-discovered sub-agents (3 only)
 │   ├── review-build-runtime-verifier.md
 │   ├── fix-planner.md
 │   └── fix-executor.md
 ├── skills/
 │   └── code-review/
-│       ├── SKILL.md                          # orchestrator
+│       ├── SKILL.md                              # orchestrator + 4 inline personas
+│       ├── personas/                             # reference files read by SKILL.md
+│       │   ├── systems-architect.md
+│       │   ├── domain-expert.md
+│       │   ├── standards-compliance.md
+│       │   ├── adversarial-path-tracer.md
+│       │   └── build-runtime-verifier.md         # also used as agent system prompt source
 │       └── templates/
-│           ├── review.md                     # review.md skeleton with placeholders
-│           ├── context.md                    # context.md skeleton
-│           └── fix-plan.md                   # fix-plan.md skeleton
+│           ├── review.md
+│           ├── context.md
+│           └── fix-plan.md
 ├── scripts/
-│   ├── code_review.py                        # deterministic helpers (existing)
+│   ├── code_review.py                            # deterministic helpers (existing)
 │   ├── __main__.py
 │   └── ...
 ```
 
-## Sub-Agent Definitions
+### Why This Split
 
-All agents use:
-- `model: opus`
-- `effort: high`
-- `background: false`
+| Component | Location | Reasoning |
+|-----------|----------|-----------|
+| SA, DE, SC, APT | Inline in SKILL.md (read persona references) | Cross-persona synergy — APT traces paths SA flagged, DE builds on SC's naming findings |
+| BRV | Sub-agent in agents/ | Needs Bash tool, produces verbose test/linter output that would pollute main context |
+| Fix Planner | Sub-agent in agents/ | Benefits from clean context — analyzes findings without main conversation noise |
+| Fix Executor | Sub-agent in agents/ | Needs Write/Edit/Bash, runs per-cluster in isolation |
+| Persona details | Reference files in personas/ | Maintainability — update one persona without touching SKILL.md |
+| Templates | Separate files in templates/ | Keeps SKILL.md lean, templates are filled programmatically |
 
-### Review Persona Agents (5)
-
-Each persona is a focused, read-only sub-agent. They receive the diff and context via the Agent tool prompt, review through their specific lens, and return structured findings.
-
-#### review-systems-architect.md
-
-```markdown
----
-name: review-systems-architect
-description: Reviews code as a senior systems architect focusing on design patterns, scalability, maintainability, and separation of concerns. Dispatched by code-review skill — not typically invoked directly.
-tools: Read, Grep, Glob
-model: opus
-effort: high
-maxTurns: 10
-memory: project
 ---
 
-You are reviewing code changes as a senior systems architect who has worked on large-scale distributed systems.
+## Sub-Agent Definitions (3 agents)
 
-## Your Focus
+All agents use: `model: opus`, `effort: high`
 
-- Does the change follow established patterns in the codebase?
-- Are abstractions at the right level?
-- Will this scale? Are there performance implications?
-- Is the separation of concerns clean?
-- Are there better design alternatives?
-
-## Input
-
-You receive via the dispatch prompt:
-- **Diff**: The code changes to review
-- **Codebase notes**: Pre-digested context about the repo's architecture
-- **Your finding ID prefix**: **SA**
-
-## Output Format
-
-Return ONLY a markdown section with this exact structure:
-
-## 1. Senior Systems Architect
-
-**Focus:** Code quality, design patterns, scalability, maintainability, separation of concerns.
-
-### Findings
-
-For each finding:
-
-#### SA-N (severity) — Title
-**File:** path/to/file.py:line-range
-**Status:** new
-Description of the finding with specific details and reasoning.
-
-Severity levels:
-- `critical` — Blocks merge (correctness bug, data loss risk, security issue)
-- `suggestion` — Should address (design concern, maintainability, missing test)
-- `nit` — Optional improvement (style, naming, minor cleanup)
-
-### Verdict
-
-One of: pass / concerns / block
-Brief explanation of overall assessment.
-
-## Memory
-
-After completing your review, update your agent memory with:
-- Architectural patterns you discovered in this codebase
-- Design conventions the team follows
-- Recurring issues you've seen across reviews
-This builds institutional knowledge for future reviews.
-```
-
-#### review-domain-expert.md
-
-```markdown
----
-name: review-domain-expert
-description: Reviews code for domain correctness and cross-layer semantic reasoning. Verifies data transformations preserve meaning across boundaries. Dispatched by code-review skill.
-tools: Read, Grep, Glob
-model: opus
-effort: high
-maxTurns: 10
-memory: project
----
-
-You are reviewing code changes as a domain expert with deep knowledge of the problem space.
-
-## Your Focus
-
-**Surface-level domain checks:**
-- Are domain concepts used correctly?
-- Do naming conventions match domain terminology?
-- Are domain invariants preserved?
-
-**Cross-layer semantic reasoning (critical — catches bugs static analysis cannot):**
-- Trace data as it flows between layers (API → service → storage → output). At each boundary: does this transformation preserve the data's domain meaning?
-- Flag normalization, aggregation, or projection steps that destroy domain-meaningful information
-- Check that filters, scopes, and thresholds match the actual domain of the data
-- Verify labels, descriptions, and user-facing text accurately describe what the code does
-- When data has provenance, check that operations preserve or explicitly discard it
-
-**Note:** The domain is inferred from the repo's documentation and codebase notes. For a materials science repo: units, physical constraints, composition semantics. For a web app: business logic, user flows, authorization scope.
-
-## Input
-
-You receive via the dispatch prompt:
-- **Diff**: The code changes to review
-- **Codebase notes**: Domain context from existing notes
-- **CLAUDE.md / AGENTS.md**: Repo standards
-- **Your finding ID prefix**: **DE**
-
-## Output Format
-
-## 2. Domain Expert
-
-**Focus:** Domain correctness and cross-layer semantic reasoning.
-
-### Findings
-
-#### DE-N (severity) — Title
-**File:** path/to/file.py:line-range
-**Status:** new
-Description — cross-layer findings should include the specific layer boundary where meaning is lost.
-
-### Verdict
-
-pass / concerns / block
-
-## Memory
-
-Update your memory with domain knowledge discovered: terminology, invariants, data flow patterns, domain-specific conventions in this codebase.
-```
-
-#### review-standards-compliance.md
-
-```markdown
----
-name: review-standards-compliance
-description: Reviews code for adherence to the repo's stated standards in CLAUDE.md, AGENTS.md, linter configs, and coding conventions. Dispatched by code-review skill.
-tools: Read, Grep, Glob
-model: opus
-effort: high
-maxTurns: 10
-memory: project
----
-
-You are reviewing code changes for compliance with the repo's own stated standards.
-
-## Your Focus
-
-- Does the code follow conventions in CLAUDE.md and AGENTS.md?
-- Are there linter config violations (.editorconfig, ruff.toml, eslint, etc.)?
-- Does commit style match the repo's convention?
-- Are imports, naming, and file organization consistent with stated standards?
-
-## Input
-
-You receive via the dispatch prompt:
-- **Diff**: The code changes to review
-- **CLAUDE.md / AGENTS.md content**: The repo's stated standards
-- **Linter configs**: If available
-- **Your finding ID prefix**: **SC**
-
-## Output Format
-
-## 3. CLAUDE.md / Coding Standards Compliance
-
-### Standards Referenced
-
-| Source | Key Rules |
-|--------|-----------|
-| CLAUDE.md | <relevant rules> |
-| AGENTS.md | <relevant rules> |
-| Other | <linter configs, .editorconfig, etc.> |
-
-### Findings
-
-#### SC-N (severity) — Title
-**File:** path/to/file.py:line-range
-**Status:** new
-Description citing the specific standard violated.
-
-### Verdict
-
-pass / concerns / block
-
-## Memory
-
-Update your memory with standards and conventions discovered in this repo's configuration files.
-```
-
-#### review-adversarial-path-tracer.md
-
-```markdown
----
-name: review-adversarial-path-tracer
-description: Traces code paths for edge cases, error propagation, behavioral side effects on callers, and order-of-operations hazards. Dispatched by code-review skill.
-tools: Read, Grep, Glob
-model: opus
-effort: high
-maxTurns: 15
-memory: project
----
-
-You are reviewing code changes as an adversarial tester, looking for how the code breaks.
-
-## Your Focus
-
-**A. Edge cases and error propagation:**
-- What happens with nil/null/None/empty inputs?
-- Are error paths handled? Do errors propagate correctly?
-- Boundary values (0, max_int, empty list, huge input)?
-- Implicit assumptions that could break?
-
-**B. Behavioral side effects on existing code (catches "works in isolation" bugs):**
-- Find every caller/consumer of modified functions. Read them. Does the behavior change break caller assumptions?
-- If return type, side effects, or error behavior changed, trace every call site
-- If a new feature auto-activates (flag defaults to true, hook runs unconditionally), check impact on existing workflows
-- If a public API endpoint or tool is added, verify end-to-end wiring is complete
-
-**C. Order-of-operations and timing hazards (intermittent, hard-to-reproduce bugs):**
-- Write before acquiring lock?
-- Read stale state (cached values, on-disk artifacts)?
-- Advance cursor/pointer before confirming current operation succeeded?
-- Write to storage before ensuring prerequisite structures exist?
-- Race conditions between concurrent readers/writers?
-
-## Input
-
-You receive via the dispatch prompt:
-- **Diff**: The code changes to review
-- **Codebase notes**: Architecture context for tracing callers
-- **Your finding ID prefix**: **APT**
-
-## Output Format
-
-## 4. Adversarial Path Tracer
-
-**Focus:** Runtime edge cases, error propagation, behavioral side effects, timing hazards.
-
-### Traced Paths
-
-| Path | Input Condition | Expected Behavior | Potential Behavior | Issue? |
-|------|----------------|-------------------|--------------------|--------|
-
-### Caller Impact
-
-| Modified Function | Caller | Assumption That May Break | Severity |
-|------------------|--------|--------------------------|----------|
-
-### Findings
-
-#### APT-N (severity) — Title
-**File:** path/to/file.py:line-range
-**Status:** new
-Concrete scenario that triggers the issue.
-
-### Verdict
-
-pass / concerns / block
-
-## Memory
-
-Update your memory with common edge case patterns and caller dependency chains in this codebase.
-```
-
-#### review-build-runtime-verifier.md
+### agents/review-build-runtime-verifier.md
 
 ```markdown
 ---
@@ -351,13 +114,12 @@ You are verifying code changes by actually running them. You MUST execute comman
 
 **Step 1: Dependency check**
 - For every new import in the diff, verify the package is declared as a dependency
-- Run: import checks (e.g., `uv run python -c "import <module>"`)
-- Check optional vs required dependency placement
+- Run import checks (e.g., `uv run python -c "import <module>"`)
 
 **Step 2: Linter pass**
 - Identify the repo's configured linters from CI config, pyproject.toml, package.json
 - Run the linter on changed files only
-- Report errors/warnings. Flag unused noqa/type-ignore comments.
+- Report errors/warnings
 
 **Step 3: Test execution**
 - Run tests related to the changed code
@@ -367,16 +129,20 @@ You are verifying code changes by actually running them. You MUST execute comman
 **Step 4: Build / artifact verification**
 - If change adds CLI commands, run with --help
 - If change modifies build config, run the build
-- If change adds API endpoints/tools, verify they're registered (not just defined)
+- If change adds API endpoints/tools, verify they're registered
 
 ## Input
 
 You receive via the dispatch prompt:
-- **Diff**: The code changes to review
-- **Changed files list**: Files to focus verification on
+- **Changed files list with stat summary**
 - **Your finding ID prefix**: **BRV**
+- **Repo root path and toolchain info** (if available from codebase notes)
+
+Note: You do NOT receive the full diff — you read files yourself via tools. This keeps your context clean for command output.
 
 ## Output Format
+
+Return ONLY a markdown section:
 
 ## 5. Build & Runtime Verifier
 
@@ -386,15 +152,15 @@ You receive via the dispatch prompt:
 
 | Check | Command | Result | Issues |
 |-------|---------|--------|--------|
-| Dependency resolution | `<command>` | pass/fail | <details> |
-| Linter | `<command>` | pass/fail | <details> |
-| Tests | `<command>` | pass/fail | <details> |
-| Build / wiring | `<command>` | pass/fail | <details> |
+| Dependency | `<cmd>` | pass/fail | <details> |
+| Linter | `<cmd>` | pass/fail | <details> |
+| Tests | `<cmd>` | pass/fail | <details> |
+| Build/wiring | `<cmd>` | pass/fail | <details> |
 
 ### Findings
 
 #### BRV-N (severity) — Title
-**File:** path/to/file.py:line-range
+**File:** path:line
 **Status:** new
 The exact command that revealed the issue and its output.
 
@@ -404,96 +170,229 @@ pass / concerns / block
 
 ## Memory
 
-Update your memory with: test commands, linter configs, build tools, and dependency patterns for this repo.
+Update memory with: test commands, linter configs, build tools, dependency patterns for this repo.
 ```
 
-### Fix Agents (2)
-
-#### fix-planner.md
+### agents/fix-planner.md
 
 ```markdown
 ---
 name: fix-planner
-description: Analyzes review findings and creates a structured fix plan with clusters, impact analysis, ordering, and approach per cluster. Dispatched by code-review skill during fix subcommand.
+description: Analyzes review findings and creates a structured fix plan with clusters, impact analysis, ordering, and approach. Dispatched by code-review skill during fix subcommand.
 tools: Read, Grep, Glob
 model: opus
 effort: high
 maxTurns: 15
 ---
 
-You are a fix planner. Given a set of review findings, you create a structured plan for fixing them cohesively.
+You are a fix planner. Given review findings, create a structured plan for fixing them cohesively.
 
 ## Your Job
 
-1. **Impact analysis**: For each finding, identify ALL files that must change (not just the referenced file). Grep for usages, find callers, trace type consumers.
-2. **Group into clusters**: Findings touching overlapping code regions (same file within 20 lines, same function, shared impacted files) form a cluster. They MUST be fixed together.
-3. **Detect conflicts**: Findings from different personas that recommend contradictory changes on the same code region. Report these — the orchestrator handles user resolution.
+1. **Impact analysis**: For each finding, identify ALL files that must change. Grep for usages, find callers, trace type consumers. If a fix requires >5 files outside the review scope, flag it as high-impact.
+2. **Group into clusters**: Findings touching overlapping code regions (same file within 20 lines, same function, shared impacted files) form a cluster.
+3. **Detect conflicts**: Findings from different personas recommending contradictory changes on the same code. Report both sides — the orchestrator handles user resolution.
 4. **Determine ordering**: Dependencies first, build fixes first, critical first, isolated before coupled.
-5. **Plan approach**: For each cluster, describe the specific code changes needed.
+5. **Plan approach**: For each cluster, describe the specific code changes needed and verification commands.
 
 ## Input
 
 You receive via the dispatch prompt:
-- **Findings JSON**: All actionable findings with IDs, severities, file references, descriptions
+- **Findings JSON**: All actionable findings with IDs, severities, file refs, descriptions
 - **Scope**: Which severity threshold is included
-- **Diff**: The current code state
+- **The diff**: Current code state for understanding context
 
 ## Output Format
 
-Return a structured fix plan as markdown following the fix-plan.md template provided in the dispatch prompt.
-
-Include for each cluster:
-- Cluster name and finding IDs
-- Files affected (including impacted callers/consumers)
-- Order number and dependency rationale
-- Specific approach per finding
-- Verification commands
-
-Flag any conflicts between findings with both sides' reasoning.
+Return a structured fix plan as markdown following the fix-plan template provided in the prompt.
 ```
 
-#### fix-executor.md
+### agents/fix-executor.md
 
 ```markdown
 ---
 name: fix-executor
-description: Applies fixes for one cluster of review findings, runs verification, and commits. Dispatched by code-review skill during fix subcommand execution phase.
+description: Applies fixes for one cluster of review findings, runs verification, and commits. Dispatched by code-review skill during fix execution phase.
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: opus
 effort: high
 maxTurns: 20
 ---
 
-You are a fix executor. You apply fixes for ONE cluster of review findings, verify the changes, and commit.
+You are a fix executor. Apply fixes for ONE cluster, verify, and commit.
 
 ## Your Job
 
-1. **Validate targets**: Verify the code regions referenced in the fix plan still exist and match expected state. If a previous cluster changed your targets, report this.
+1. **Validate targets**: Verify code regions in the fix plan still exist. If a previous cluster changed your targets, report and stop.
 2. **Read current code**: Read all files in the cluster and impacted files.
-3. **Apply fixes**: Make the code changes described in the cluster's approach.
-4. **Verify**: Run the cluster's verification commands (linter + tests on touched files).
+3. **Apply fixes**: Make the code changes described in the approach.
+4. **Verify**: Run the cluster's verification commands (linter + tests).
 5. **Commit**: Stage and commit the cluster's changes.
 
 ## Input
 
 You receive via the dispatch prompt:
 - **Cluster details**: Finding IDs, approach, files, verification commands
-- **Pre-fix SHA**: The anchor point (for reference only — orchestrator handles squash)
+- **Changes from prior clusters** (if any): Summary of what previous clusters modified
 
 ## Output Format
 
-Report back with:
+Report:
 - **Status**: pass / fail
-- **Files changed**: List of modified files
+- **Files changed**: List
 - **Verification output**: Linter and test results
 - **Commit SHA**: The intermediate commit hash
 - **Issues**: Any problems encountered
 
 If verification fails, do NOT proceed. Report the failure with full output.
-If targets have been invalidated by a previous cluster, report this and stop.
 ```
 
-## Templates
+---
+
+## Persona Reference Files (5 files)
+
+These are NOT agent definitions — they're reference documents read by SKILL.md. Each contains the persona's focus areas, review questions, and output format. SKILL.md reads them and uses the content inline.
+
+### personas/systems-architect.md
+
+```markdown
+# Systems Architect (SA)
+
+**Focus:** Code quality, design patterns, scalability, maintainability, separation of concerns.
+
+## Review Questions
+- Does the change follow established patterns in the codebase?
+- Are abstractions at the right level?
+- Will this scale? Performance implications?
+- Is the separation of concerns clean?
+- Are there better design alternatives?
+
+## Finding Format
+#### SA-N (severity) — Title
+**File:** path:line-range
+**Status:** new
+Description with specific details and reasoning.
+```
+
+### personas/domain-expert.md
+
+```markdown
+# Domain Expert (DE)
+
+**Focus:** Domain correctness AND cross-layer semantic reasoning.
+
+## Surface-Level Checks
+- Are domain concepts used correctly?
+- Do naming conventions match domain terminology?
+- Are domain invariants preserved?
+
+## Cross-Layer Semantic Reasoning (critical)
+- Trace data between layers (API → service → storage → output). At each boundary: does this transformation preserve domain meaning?
+- Flag normalization/aggregation/projection that destroys domain-meaningful information
+- Check filters, scopes, and thresholds match the actual domain of the data
+- Verify labels and user-facing text accurately describe what code does
+- Check that operations preserve or explicitly discard data provenance
+
+**Note:** Domain inferred from repo docs and codebase notes. Materials science: units, physical constraints, composition semantics. Web app: business logic, user flows, authorization scope.
+
+## Finding Format
+#### DE-N (severity) — Title
+**File:** path:line-range
+**Status:** new
+Cross-layer findings include the specific layer boundary where meaning is lost.
+```
+
+### personas/standards-compliance.md
+
+```markdown
+# Standards Compliance (SC)
+
+**Focus:** Adherence to the repo's stated standards and conventions.
+
+## Review Questions
+- Does the code follow conventions in CLAUDE.md and AGENTS.md?
+- Are there linter config violations?
+- Does commit style match the repo's convention?
+- Are imports, naming, and file organization consistent?
+
+## Standards Referenced Table
+| Source | Key Rules |
+|--------|-----------|
+| CLAUDE.md | <relevant rules> |
+| AGENTS.md | <relevant rules> |
+| Other | <linter configs, .editorconfig, etc.> |
+
+## Finding Format
+#### SC-N (severity) — Title
+**File:** path:line-range
+**Status:** new
+Cite the specific standard violated.
+```
+
+### personas/adversarial-path-tracer.md
+
+```markdown
+# Adversarial Path Tracer (APT)
+
+**Focus:** Edge cases, error propagation, behavioral side effects, timing hazards.
+
+## A. Edge Cases and Error Propagation
+- nil/null/None/empty inputs?
+- Error paths handled? Propagation correct?
+- Boundary values (0, max_int, empty list, huge input)?
+- Implicit assumptions that could break?
+
+## B. Behavioral Side Effects on Existing Code
+- Find every caller/consumer of modified functions. Read them. Does the change break caller assumptions?
+- If return type, side effects, or error behavior changed, trace every call site
+- If new feature auto-activates, check impact on existing workflows
+- If public API added, verify end-to-end wiring complete
+
+## C. Order-of-Operations and Timing Hazards
+- Write before lock? Read stale state? Advance cursor before confirming? Write before prerequisite structures exist? Race conditions?
+
+## Tables
+### Traced Paths
+| Path | Input Condition | Expected | Potential | Issue? |
+|------|----------------|----------|-----------|--------|
+
+### Caller Impact
+| Modified Function | Caller | Assumption That May Break | Severity |
+|------------------|--------|--------------------------|----------|
+
+## Finding Format
+#### APT-N (severity) — Title
+**File:** path:line-range
+**Status:** new
+Concrete scenario that triggers the issue.
+```
+
+### personas/build-runtime-verifier.md
+
+```markdown
+# Build & Runtime Verifier (BRV)
+
+**Focus:** Does this code actually run? Verified by execution, not reading.
+
+This persona is dispatched as a sub-agent (needs Bash tool access).
+See agents/review-build-runtime-verifier.md for the agent definition.
+
+## Execution Steps
+1. Dependency check — verify new imports resolve
+2. Linter pass — run repo's configured linter on changed files
+3. Test execution — run relevant tests, check they test new behavior
+4. Build/artifact verification — CLI commands, registrations, wiring
+
+## Finding Format
+#### BRV-N (severity) — Title
+**File:** path:line-range
+**Status:** new
+Exact command and output that revealed the issue.
+```
+
+---
+
+## Templates (3 files)
 
 ### templates/review.md
 
@@ -560,25 +459,20 @@ status: reviewed
 ## What Changed
 
 ### Summary
-
 {change_summary}
 
 ### By Area
-
 | Area | Files | Nature of Change |
 |------|-------|-----------------|
 {area_rows}
 
 ### Architecture Impact
-
 {architecture_impact}
 
 ## How It Works
-
 {implementation_approach}
 
 ## Related Notes
-
 | Note | Relevance | May Need Update |
 |------|-----------|-----------------|
 {related_notes}
@@ -600,115 +494,157 @@ pre_fix_sha: {pre_fix_sha}
 
 **Review version:** v{version}
 **Scope:** {scope} — {count} findings to address
-**Conflicts:** {conflict_count} (see below)
+**Conflicts:** {conflict_count}
 **Deferred:** {deferred_count}
 
 ## Conflict Resolution
-
 {conflicts_table}
 
 ## Fix Clusters
-
 {clusters}
 
 ## Deferred Findings
-
 {deferred_table}
 
 ## Execution Checklist
-
 {checklist}
 ```
 
-## SKILL.md Orchestrator Design (~400 lines)
+---
 
-The SKILL.md becomes a compact orchestrator with these sections:
+## SKILL.md Orchestrator Design (~550 lines)
 
 ### Section Breakdown
 
 | Section | Lines | Content |
 |---------|-------|---------|
-| Frontmatter + intro | 15 | Name, description, allowed-tools (must include Agent) |
-| Shared context reference | 5 | Points to references/shared-context.md |
+| Frontmatter + intro | 15 | Name, description, allowed-tools (includes Agent) |
+| Shared context + script shorthand | 10 | Reference to shared-context.md, `${CLAUDE_PLUGIN_ROOT}` pattern |
 | Subcommands table + examples | 40 | All 5 subcommands with args and examples |
-| Storage structure | 15 | Directory layout, slug rules |
-| Step 0: Bootstrap | 20 | Venv check, repo-id, forge detection |
-| **`new` subcommand** | 80 | Resolve → diff → context → dispatch 5 personas → assemble review.md |
-| **`update` subcommand** | 80 | Preflight → delta → dispatch 5 personas → classify findings → update docs |
-| **`fix` subcommand** | 80 | Preflight → list findings → dispatch planner → resolve conflicts → dispatch executors → squash → update docs |
+| Storage structure + slug resolution | 30 | Directory layout, slug rules, disambiguation |
+| Step 0: Bootstrap + forge detection | 20 | Venv check, repo-id, forge CLI |
+| Severity + status definitions | 25 | Finding-level + document-level status enums, severity definitions |
+| **`new` subcommand** | 120 | Resolve → diff → context → read persona refs → run 4 inline personas → dispatch BRV agent → assemble review.md |
+| **`update` subcommand** | 120 | Preflight → delta → read persona refs → run 4 inline personas with prior findings context → dispatch BRV → classify → update docs |
+| **`fix` subcommand** | 100 | Preflight → list findings → dispatch planner → resolve conflicts → dispatch executors → squash → update docs |
 | `list` + `view` | 30 | Read metadata, present tables |
-| Slug resolution + disambiguation | 25 | Rules, collision handling, multi-match prompt |
+| State transition matrix | 20 | 7x7 matrix (reference for inline classification) |
+| Finding matching heuristics | 15 | Exact → function → semantic → new |
 | Backward compatibility | 15 | Pre-versioned review migration |
 | Cross-referencing protocol | 10 | Notes linkage |
-| **Total** | **~415** |
+| **Total** | **~570** |
 
-### Key Orchestration Patterns
+### How Inline Personas Work
 
-**Parallel persona dispatch (in `new` and `update`):**
-```
-Dispatch all 5 in a SINGLE message with 5 Agent tool calls:
+For the `new` and `update` subcommands, SKILL.md reads the persona reference files and uses them as inline instructions:
 
-Agent(subagent_type="codebase-notes:review-systems-architect", prompt="<context + diff>")
-Agent(subagent_type="codebase-notes:review-domain-expert", prompt="<context + diff>")
-Agent(subagent_type="codebase-notes:review-standards-compliance", prompt="<context + diff + standards>")
-Agent(subagent_type="codebase-notes:review-adversarial-path-tracer", prompt="<context + diff>")
-Agent(subagent_type="codebase-notes:review-build-runtime-verifier", prompt="<context + diff + changed files>")
-```
+```markdown
+### Step 5: Write review.md — Multi-Persona Review
 
-**Sequential fix execution (in `fix`):**
-```
-For each cluster in order:
-  Agent(subagent_type="codebase-notes:fix-executor", prompt="<cluster details>")
-  If fail → ask user → skip/retry/stop
-  If pass → continue to next cluster
-```
+Read the persona reference files at `${CLAUDE_PLUGIN_ROOT}/skills/code-review/personas/`.
 
-**Script calls use `${CLAUDE_PLUGIN_ROOT}`:**
-```bash
-cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts review-preflight --review-dir <path>
+For each of the four inline personas (Systems Architect, Domain Expert, Standards Compliance, Adversarial Path Tracer):
+1. Read the persona's reference file for focus areas and review questions
+2. Review the diff through that persona's lens
+3. Write the findings section with the persona's ID prefix (SA, DE, SC, APT)
+
+These four run sequentially in the current context — they benefit from seeing each other's findings. The Adversarial Path Tracer runs LAST so it can trace paths flagged by other personas.
+
+After the four inline personas complete, dispatch the Build & Runtime Verifier as a sub-agent:
+
+Agent(subagent_type="codebase-notes:review-build-runtime-verifier", prompt="<changed files list + stat summary + repo toolchain info>")
+
+The BRV returns its section. Insert it as section 5 of review.md.
 ```
 
-### What Stays in SKILL.md (orchestrator judgment)
+### How Fix Flow Works
 
-- When to dispatch which agents
-- How to assemble persona results into review.md
-- Finding classification logic for `update` (comparing prior findings against new results using scripts)
-- User interaction for fix conflicts
-- Decision trees (squash detected? merge-base drifted? PR merged?)
+```markdown
+### Fix Subcommand Flow
 
-### What Moves to Sub-Agents (domain judgment)
+**Phase 0: Pre-flight** (script calls)
+1. Run `review-preflight --check-fix` — validates branch match, clean tree
+2. Check for existing fix-plan.md
 
-- How to review code (persona-specific lens)
-- What findings to report
-- How to plan fixes (clustering, impact analysis)
-- How to apply fixes (code changes, verification)
+**Phase 1: Gather findings** (script call)
+3. Run `review-status --action list-findings` — get JSON of all findings
+4. Filter by --scope (critical / default / all)
 
-### What Stays in Scripts (deterministic ops)
+**Phase 2: Plan** (sub-agent)
+5. Dispatch fix-planner agent with findings JSON + diff
+6. Planner returns structured fix-plan.md
+7. Present plan to user, resolve conflicts interactively
 
-- Pre-flight validation
-- Tree-content delta computation
-- Finding ID assignment
-- Status transition validation
-- Fix Log / Review History regeneration
-- Frontmatter read/update
+**Phase 3: Execute** (sub-agents, sequential)
+8. Record PRE_FIX_SHA
+9. For each cluster:
+   a. Dispatch fix-executor with cluster details + prior cluster changes
+   b. If fail → ask user (retry/skip/stop)
+   c. If pass → continue
+10. Squash: `git reset --soft $PRE_FIX_SHA && git commit`
+
+**Phase 4: Update docs** (script calls)
+11. Update finding statuses in review.md
+12. Run `review-status --action regenerate-fixlog`
+13. Run `review-frontmatter --action update --set last_fix_sha=<sha>`
+```
+
+---
+
+## Key Differences from Full Sub-Agent Approach
+
+| Aspect | Full Sub-Agent | Hybrid (this spec) |
+|--------|---------------|---------------------|
+| Cross-persona synergy | Lost (isolated contexts) | Preserved (shared context) |
+| Execution speed | Parallel but with setup overhead | Streaming, BRV parallel |
+| Token cost | ~3-5x (diff duplicated 5x) | ~1.3x (only BRV gets separate context) |
+| User visibility | Silence then wall of text | Continuous streaming |
+| Classification in update | Ambiguous (personas can't match) | Clear (inline personas do matching) |
+| Maintainability | Best (each persona independent file) | Good (persona refs separate, SKILL.md reads them) |
+| BRV isolation | Yes | Yes (sub-agent) |
+| Fix isolation | Yes | Yes (sub-agents) |
+
+---
 
 ## Status Vocabulary
 
-**Document-level** (set by orchestrator):
+**Document-level** (hyphenated, set by orchestrator):
 `review-in-progress`, `reviewed`, `review-updated`, `fixes-applied`, `merged`, `abandoned`
 
-**Finding-level** (set by orchestrator during classification):
+**Finding-level** (single words, set during classification):
 `new`, `persists`, `resolved`, `missed`, `regressed`, `fixed`, `deferred`
 
 State transitions enforced by `review-status --action validate-transition` script.
 
+---
+
 ## Migration from Current Implementation
 
-1. Create `agents/` directory with 7 agent files
-2. Create `skills/code-review/templates/` with 3 template files
-3. Rewrite `skills/code-review/SKILL.md` as orchestrator
-4. Existing `scripts/code_review.py` unchanged
-5. Existing `scripts/__main__.py` unchanged
-6. Existing `scripts/context_index.py` unchanged
+1. Create `agents/` directory with 3 agent files (BRV, fix-planner, fix-executor)
+2. Create `skills/code-review/personas/` with 5 reference files
+3. Create `skills/code-review/templates/` with 3 template files
+4. Rewrite `skills/code-review/SKILL.md` as hybrid orchestrator (~550 lines)
+5. Existing `scripts/code_review.py` — unchanged
+6. Existing `scripts/__main__.py` — unchanged
+7. Existing `scripts/context_index.py` — unchanged
 
 No changes to scripts or infrastructure — only the skill layer is restructured.
+
+---
+
+## Review Findings Addressed
+
+From the multi-persona spec review (30 findings total):
+
+| Finding | Resolution |
+|---------|------------|
+| PA-1: subagent_type syntax | Only 3 agents now; verify `codebase-notes:review-build-runtime-verifier` syntax |
+| PA-2: `background: false` invalid | Removed from spec — not a frontmatter field |
+| DX-1: Parallel may be slower | 4 personas inline (no agent overhead), only BRV dispatched |
+| DX-2: Context isolation kills synergy | 4 personas share context, only BRV isolated |
+| DX-3: 3-5x cost | ~1.3x cost (only BRV duplicates context) |
+| DX-4: No visibility | 4 personas stream inline, only BRV is async |
+| DX-8: Memory noise | Memory only on BRV (useful for test/build commands) |
+| OD-1: No diff size budget | BRV gets stat summary only (reads files itself); inline personas use existing large-diff strategy |
+| OD-4/OD-11: Classification ambiguous | Inline personas do their own classification with full context of prior findings |
+| OD-8: 5x diff duplication | Only BRV gets separate context (stat summary, not full diff) |
