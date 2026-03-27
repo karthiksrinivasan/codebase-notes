@@ -123,6 +123,53 @@ def _detect_forge(remote_url: str) -> dict:
     return {"forge": forge, "cli": cli, "hostname": hostname}
 
 
+def _check_cli_auth(cli: str) -> dict:
+    """Check if forge CLI is available and authenticated."""
+    available = shutil.which(cli) is not None
+    authenticated = False
+    if available:
+        try:
+            r = subprocess.run(
+                [cli, "auth", "status"],
+                capture_output=True, text=True, timeout=10,
+            )
+            authenticated = r.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+    return {
+        "cli_available": available,
+        "cli_authenticated": authenticated,
+        "cli_usable": available and authenticated,
+    }
+
+
+def run_forge(args) -> int:
+    """Detect git forge from remote URL. Entry point for review-forge command."""
+    remote_name = getattr(args, "remote", None) or "origin"
+    r = subprocess.run(
+        ["git", "remote", "get-url", remote_name],
+        cwd=_repo_root(),
+        capture_output=True, text=True, timeout=10,
+    )
+    if r.returncode != 0:
+        print(f"error: could not get URL for remote '{remote_name}'", file=sys.stderr)
+        return 1
+
+    remote_url = r.stdout.strip()
+    result = _detect_forge(remote_url)
+    result["remote_url"] = remote_url
+
+    # Check CLI availability and auth
+    if result["cli"]:
+        auth_info = _check_cli_auth(result["cli"])
+        result.update(auth_info)
+    else:
+        result.update({"cli_available": False, "cli_authenticated": False, "cli_usable": False})
+
+    print(json.dumps(result, indent=2))
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Git helpers
 # ---------------------------------------------------------------------------
@@ -357,16 +404,13 @@ def run_preflight(args) -> int:
         else:
             result["errors"].append("context.md missing head_branch in frontmatter")
 
-        # 6. Detect forge CLI
+        # 6. Detect forge CLI — use shared _detect_forge()
         r_remote = _git("remote", "get-url", "origin")
         remote_url = r_remote.stdout.strip() if r_remote.returncode == 0 else ""
+        forge_info = _detect_forge(remote_url)
         forge_cli = None
-        if "github" in remote_url.lower():
-            if shutil.which("gh"):
-                forge_cli = "gh"
-        elif "gitlab" in remote_url.lower():
-            if shutil.which("glab"):
-                forge_cli = "glab"
+        if forge_info["cli"] and shutil.which(forge_info["cli"]):
+            forge_cli = forge_info["cli"]
         result["forge_cli"] = forge_cli
 
         # 7. Query PR state if forge CLI available

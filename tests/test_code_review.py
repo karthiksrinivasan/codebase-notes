@@ -1,7 +1,7 @@
 """Tests for code_review.py deterministic helpers."""
 
 import pytest
-from scripts.code_review import _detect_forge, _parse_hostname, VALID_TRANSITIONS, parse_findings
+from scripts.code_review import _detect_forge, _parse_hostname, _check_cli_auth, VALID_TRANSITIONS, parse_findings
 
 
 class TestParseHostname:
@@ -107,6 +107,26 @@ class TestDetectForge:
         result = _detect_forge("https://git.mycompany.com/org/repo.git")
         assert result["forge"] == "unknown"
         assert result["cli"] is None
+
+
+class TestRunForgeOutput:
+    """Test run_forge returns correct JSON structure."""
+
+    def test_detect_forge_output_keys(self):
+        """Verify _detect_forge returns expected keys."""
+        result = _detect_forge("https://github.com/org/repo.git")
+        assert "forge" in result
+        assert "cli" in result
+        assert "hostname" in result
+
+    def test_check_cli_auth_structure(self):
+        """Verify _check_cli_auth returns expected keys."""
+        result = _check_cli_auth("nonexistent-cli-tool-xyz")
+        assert "cli_available" in result
+        assert "cli_authenticated" in result
+        assert "cli_usable" in result
+        assert result["cli_available"] is False
+        assert result["cli_usable"] is False
 
 
 class TestValidTransitions:

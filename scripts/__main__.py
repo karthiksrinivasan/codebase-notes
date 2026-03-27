@@ -70,6 +70,10 @@ def main() -> int:
     ctx_parser.add_argument("--filter-stdin", action="store_true", help="Filter by PostToolUse stdin input")
     ctx_parser.add_argument("--json-envelope", action="store_true", help="Wrap output in hook JSON format")
 
+    # review-forge
+    forge_parser = subparsers.add_parser("review-forge", help="Detect git forge from remote URL")
+    forge_parser.add_argument("--remote", default="origin", help="Git remote name (default: origin)")
+
     # review-preflight
     preflight_parser = subparsers.add_parser("review-preflight", help="Check preconditions for a code review")
     preflight_parser.add_argument("--review-dir", required=True, help="Path to the review directory")
@@ -124,6 +128,7 @@ def main() -> int:
         "stats": "scripts.stats",
         "verify-diagrams": "scripts.verify_diagrams",
         "context-index": "scripts.context_index",
+        "review-forge": "scripts.code_review",
         "review-preflight": "scripts.code_review",
         "review-delta": "scripts.code_review",
         "review-status": "scripts.code_review",
@@ -143,6 +148,8 @@ def main() -> int:
             return mod.run_cron(args)
         elif args.command == "auto-update":
             return mod.run_auto_update(args)
+        elif args.command == "review-forge":
+            return mod.run_forge(args)
         elif args.command == "review-preflight":
             return mod.run_preflight(args)
         elif args.command == "review-delta":
