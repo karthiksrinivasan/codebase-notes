@@ -2,6 +2,9 @@
 
 import json
 import subprocess
+import tempfile
+from argparse import Namespace
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -9,6 +12,7 @@ from scripts.code_review import (
     _detect_forge, _parse_hostname, _check_cli_auth,
     _discover_stack_pr_chain, _discover_stack_git_topology,
     run_stack, MAX_STACK_DEPTH,
+    run_loop_state,
     VALID_TRANSITIONS, parse_findings,
 )
 
@@ -443,3 +447,159 @@ class TestRunStack:
     def test_max_stack_depth_constant(self):
         """MAX_STACK_DEPTH should be 20."""
         assert MAX_STACK_DEPTH == 20
+
+
+# ---------------------------------------------------------------------------
+# Loop state management tests
+# ---------------------------------------------------------------------------
+
+
+class TestLoopState:
+    """Test loop state management (IQ-9: uses capsys)."""
+
+    def _make_args(self, **kwargs):
+        """Create a mock args namespace."""
+        defaults = {
+            "review_dir": "",
+            "action": "read",
+            "branches": None,
+            "loop_args": None,
+            "branch": None,
+            "status": None,
+            "cycles": None,
+        }
+        defaults.update(kwargs)
+        return Namespace(**defaults)
+
+    def test_write_and_read_state(self, capsys):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            branches_json = json.dumps([
+                {"branch": "feat/a", "status": "pending"},
+                {"branch": "feat/b", "status": "pending"},
+            ])
+            args_json = json.dumps({"max_cycles": 3, "auto_approve": True})
+
+            # Write
+            args = self._make_args(review_dir=tmpdir, action="write", branches=branches_json, loop_args=args_json)
+            rc = run_loop_state(args)
+            assert rc == 0
+
+            # Clear write output, then read
+            capsys.readouterr()
+            args = self._make_args(review_dir=tmpdir, action="read")
+            rc = run_loop_state(args)
+            assert rc == 0
+            state = json.loads(capsys.readouterr().out)
+            assert len(state["branches"]) == 2
+            assert state["branches"][0]["status"] == "pending"
+
+    def test_write_uses_utc_timestamp(self):
+        """IQ-5: Timestamps must use datetime.now(timezone.utc), not date.today()."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            branches_json = json.dumps([{"branch": "feat/a", "status": "pending"}])
+            args = self._make_args(review_dir=tmpdir, action="write", branches=branches_json)
+            run_loop_state(args)
+
+            state_path = Path(tmpdir) / "loop-state.json"
+            state = json.loads(state_path.read_text())
+            # Should NOT end with T00:00:00Z (the old date.today() pattern)
+            assert not state["started"].endswith("T00:00:00Z")
+            # Should contain a T separator and timezone info
+            assert "T" in state["started"]
+
+    def test_update_branch_status(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Write initial
+            branches_json = json.dumps([{"branch": "feat/a", "status": "pending"}])
+            args = self._make_args(review_dir=tmpdir, action="write", branches=branches_json, loop_args="{}")
+            run_loop_state(args)
+
+            # Update
+            args = self._make_args(review_dir=tmpdir, action="update-branch", branch="feat/a", status="converged", cycles=2)
+            rc = run_loop_state(args)
+            assert rc == 0
+
+            # Verify
+            state_path = Path(tmpdir) / "loop-state.json"
+            state = json.loads(state_path.read_text())
+            assert state["branches"][0]["status"] == "converged"
+            assert state["branches"][0]["cycles"] == 2
+
+    def test_read_missing_state_returns_error(self, capsys):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = self._make_args(review_dir=tmpdir, action="read")
+            rc = run_loop_state(args)
+            assert rc == 1
+            output = json.loads(capsys.readouterr().out)
+            assert output["exists"] is False
+
+    def test_read_corrupt_json_returns_error(self, capsys):
+        """IQ-13: json.loads in read action must be wrapped in try/except."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / "loop-state.json"
+            state_path.write_text("{invalid json", encoding="utf-8")
+            args = self._make_args(review_dir=tmpdir, action="read")
+            rc = run_loop_state(args)
+            assert rc == 1
+            output = json.loads(capsys.readouterr().out)
+            assert "Invalid JSON" in output["error"]
+
+    def test_update_branch_corrupt_json_returns_error(self):
+        """IQ-13: json.loads in update-branch action must be wrapped in try/except."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / "loop-state.json"
+            state_path.write_text("not valid json!", encoding="utf-8")
+            args = self._make_args(review_dir=tmpdir, action="update-branch", branch="feat/a", status="converged")
+            rc = run_loop_state(args)
+            assert rc == 1
+
+    def test_update_nonexistent_branch_returns_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            branches_json = json.dumps([{"branch": "feat/a", "status": "pending"}])
+            args = self._make_args(review_dir=tmpdir, action="write", branches=branches_json)
+            run_loop_state(args)
+
+            args = self._make_args(review_dir=tmpdir, action="update-branch", branch="feat/nonexistent", status="converged")
+            rc = run_loop_state(args)
+            assert rc == 1
+
+    def test_write_without_branches_returns_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = self._make_args(review_dir=tmpdir, action="write")
+            rc = run_loop_state(args)
+            assert rc == 1
+
+    def test_unknown_action_returns_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            args = self._make_args(review_dir=tmpdir, action="delete")
+            rc = run_loop_state(args)
+            assert rc == 1
+
+    def test_advances_branch_index_on_update(self):
+        """After completing a branch, index should advance to next pending."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            branches_json = json.dumps([
+                {"branch": "feat/a", "status": "pending"},
+                {"branch": "feat/b", "status": "pending"},
+            ])
+            args = self._make_args(review_dir=tmpdir, action="write", branches=branches_json)
+            run_loop_state(args)
+
+            # Complete first branch
+            args = self._make_args(review_dir=tmpdir, action="update-branch", branch="feat/a", status="converged", cycles=1)
+            run_loop_state(args)
+
+            state_path = Path(tmpdir) / "loop-state.json"
+            state = json.loads(state_path.read_text())
+            assert state["current_branch_index"] == 1  # advanced to feat/b
+
+    def test_write_without_loop_args(self):
+        """Write should work when --loop-args is not provided."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            branches_json = json.dumps([{"branch": "feat/a", "status": "pending"}])
+            args = self._make_args(review_dir=tmpdir, action="write", branches=branches_json)
+            rc = run_loop_state(args)
+            assert rc == 0
+            state_path = Path(tmpdir) / "loop-state.json"
+            state = json.loads(state_path.read_text())
+            assert state["args"] == {}

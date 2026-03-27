@@ -16,7 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -1137,4 +1137,94 @@ def run_frontmatter(args) -> int:
 
     else:
         print(f"error: unknown action '{action}'", file=sys.stderr)
+        return 1
+
+
+# ---------------------------------------------------------------------------
+# Loop state management
+# ---------------------------------------------------------------------------
+
+def run_loop_state(args) -> int:
+    """Manage loop-state.json for review-fix loop. Entry point for review-loop-state."""
+    review_dir = Path(args.review_dir)
+    action = args.action
+    state_path = review_dir / "loop-state.json"
+
+    if action == "read":
+        if not state_path.is_file():
+            print(json.dumps({"error": "No loop-state.json found", "exists": False}))
+            return 1
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            print(json.dumps({"error": f"Invalid JSON in loop-state.json: {exc}", "exists": True}))
+            return 1
+        print(json.dumps(state, indent=2))
+        return 0
+
+    elif action == "write":
+        branches_raw = getattr(args, "branches", None)
+        loop_args_raw = getattr(args, "loop_args", None)
+        if not branches_raw:
+            print("error: --branches required for write action", file=sys.stderr)
+            return 1
+        branches = json.loads(branches_raw)
+        loop_args = json.loads(loop_args_raw) if loop_args_raw else {}
+
+        state = {
+            "started": datetime.now(timezone.utc).isoformat(),
+            "branches": branches,
+            "current_branch_index": 0,
+            "current_cycle": 0,
+            "args": loop_args,
+        }
+        review_dir.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        print(json.dumps({"status": "written", "path": str(state_path)}))
+        return 0
+
+    elif action == "update-branch":
+        branch_name = getattr(args, "branch", None)
+        new_status = getattr(args, "status", None)
+        cycles = getattr(args, "cycles", None)
+        if not branch_name or not new_status:
+            print("error: --branch and --status required for update-branch", file=sys.stderr)
+            return 1
+        if not state_path.is_file():
+            print("error: No loop-state.json to update", file=sys.stderr)
+            return 1
+
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            print(f"error: Invalid JSON in loop-state.json: {exc}", file=sys.stderr)
+            return 1
+
+        updated = False
+        for entry in state["branches"]:
+            if entry["branch"] == branch_name:
+                entry["status"] = new_status
+                if cycles is not None:
+                    entry["cycles"] = cycles
+                updated = True
+                break
+
+        if not updated:
+            print(f"error: Branch {branch_name} not found in state", file=sys.stderr)
+            return 1
+
+        # Advance current_branch_index to next non-completed branch
+        for i, entry in enumerate(state["branches"]):
+            if entry["status"] in ("pending", "in-progress"):
+                state["current_branch_index"] = i
+                break
+        else:
+            state["current_branch_index"] = len(state["branches"])
+
+        state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        print(json.dumps({"status": "updated", "branch": branch_name}))
+        return 0
+
+    else:
+        print(f"error: Unknown action '{action}'", file=sys.stderr)
         return 1
