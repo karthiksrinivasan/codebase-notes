@@ -263,6 +263,22 @@ phase_review() {
     project_arg="--project \"$PROJECT\""
   fi
 
+  # Build project context snippet (known issues, runtime notes)
+  local project_context=""
+  if [[ -n "$PROJECT" ]]; then
+    local project_context_file
+    project_context_file="$(run_script repo-id)"
+    project_context_file="$HOME/.claude/repo_notes/${project_context_file}/projects/${PROJECT}/context.md"
+    if [[ -f "$project_context_file" ]]; then
+      project_context="
+
+## Project Context (from ${PROJECT}/context.md)
+$(cat "$project_context_file")
+
+IMPORTANT: Known issues listed above are environmental/runtime — do NOT flag them as code findings unless the code itself is incorrect. For example, if the context says 'set OMP_NUM_THREADS=1 before running FAISS', that is a deployment concern, not a code bug."
+    fi
+  fi
+
   # Build cross-branch context
   local cross_context=""
   if [[ -n "$STACK_BASE" ]]; then
@@ -294,7 +310,7 @@ This is an automated review-fix loop. After the review completes:
 
 Key: Use the persona reference files at ${PLUGIN_ROOT}/skills/code-review/personas/ for each persona.
 Dispatch BRV as sub-agent: codebase-notes:review-build-runtime-verifier
-${cross_context}" \
+${project_context}${cross_context}" \
     "$log_file"
 }
 
@@ -305,6 +321,22 @@ phase_fix() {
   local slug
   slug="$(echo "$branch" | sed 's|/|-|g')"
   local review_path="${REVIEWS_DIR}/${slug}/review.md"
+
+  # Load project context for fix guidance
+  local fix_project_context=""
+  if [[ -n "$PROJECT" ]]; then
+    local ctx_repo_id
+    ctx_repo_id="$(run_script repo-id)"
+    local ctx_file="$HOME/.claude/repo_notes/${ctx_repo_id}/projects/${PROJECT}/context.md"
+    if [[ -f "$ctx_file" ]]; then
+      fix_project_context="
+
+## Project Context
+$(cat "$ctx_file")
+
+IMPORTANT: Do NOT attempt to fix known runtime/environmental issues listed above. Only fix actual code defects."
+    fi
+  fi
 
   local log_file="${LOG_DIR}/${slug}-fix-$(date +%s).log"
 
@@ -321,7 +353,8 @@ This is an automated fix cycle. Key behaviors for --auto-approve:
 After fixing, report:
 - How many findings were fixed
 - How many were deferred
-- The commit SHA" \
+- The commit SHA
+${fix_project_context}" \
     "$log_file"
 }
 
@@ -365,7 +398,7 @@ phase_check() {
   local review_path="${REVIEWS_DIR}/${slug}/review.md"
 
   if [[ ! -f "$review_path" ]]; then
-    warn "No review.md found for $branch after verify — treating as stalled"
+    warn "No review.md found for $branch after verify — treating as stalled" >&2
     echo "stalled"
     return
   fi
@@ -373,16 +406,14 @@ phase_check() {
   # CRITICAL: Verify that the review was actually updated by the verify phase.
   # If the verify phase failed or didn't write, we must NOT declare convergence.
   # Check that review.md was modified within the last 10 minutes.
-  local file_age
-  if [[ "$(uname)" == "Darwin" ]]; then
-    file_age=$(( $(date +%s) - $(stat -f%m "$review_path") ))
-  else
-    file_age=$(( $(date +%s) - $(stat -c%Y "$review_path") ))
-  fi
+  local file_mtime file_age
+  # Try GNU stat first (works on Linux and macOS with coreutils), fallback to BSD stat
+  file_mtime="$(stat -c%Y "$review_path" 2>/dev/null || stat -f%m "$review_path" 2>/dev/null || echo "0")"
+  file_age=$(( $(date +%s) - file_mtime ))
 
   if [[ "$file_age" -gt 600 ]]; then
-    warn "review.md for $branch was not updated by verify phase (last modified ${file_age}s ago)"
-    warn "Verify phase may have failed — treating as stalled (NOT converged)"
+    warn "review.md for $branch was not updated by verify phase (last modified ${file_age}s ago)" >&2
+    warn "Verify phase may have failed — treating as stalled (NOT converged)" >&2
     echo "stalled"
     return
   fi
@@ -403,16 +434,17 @@ phase_check() {
   total_findings="$(echo "$findings_json" | jq 'length')"
 
   if [[ "$total_findings" -eq 0 ]]; then
-    warn "review.md has 0 findings — review may not have been written properly"
-    warn "Treating as stalled to prevent false convergence"
+    warn "review.md has 0 findings — review may not have been written properly" >&2
+    warn "Treating as stalled to prevent false convergence" >&2
     echo "stalled"
     return
   fi
 
-  info "Branch $branch cycle $cycle: $qualifying qualifying / $total_findings total findings"
+  # Log to stderr so $(phase_check) only captures the result on stdout
+  info "Branch $branch cycle $cycle: $qualifying qualifying / $total_findings total findings" >&2
 
   if [[ "$qualifying" -eq 0 ]]; then
-    success "CONVERGED: 0 qualifying findings (verified by review-status script)"
+    success "CONVERGED: 0 qualifying findings (verified by review-status script)" >&2
     echo "converged"
   elif [[ "$cycle" -ge "$MAX_CYCLES" ]]; then
     echo "hard-cap"
@@ -539,13 +571,19 @@ main() {
     # Mark in-progress
     state_set ".branches[$i].status = \"in-progress\""
 
+    # Stash any dirty files (e.g., uv.lock from previous fix sessions) before checkout
+    if [[ -n "$(git diff --name-only 2>/dev/null)" ]]; then
+      info "Stashing dirty working tree before checkout..."
+      git stash push -m "review-loop: pre-checkout stash" 2>/dev/null || true
+    fi
+
     # Checkout the branch
     info "Checking out $branch..."
     git checkout "$branch" 2>/dev/null || git checkout -b "$branch" "origin/$branch" 2>/dev/null || die "Cannot checkout $branch"
 
     # Phase 1: Initial review
     info "Phase 1: REVIEW"
-    phase_review "$branch"
+    phase_review "$branch" || warn "Review session exited with error — checking results anyway"
 
     # Check if clean (no qualifying findings)
     local check_result
@@ -565,7 +603,7 @@ main() {
 
         # Phase 2: Fix
         info "Phase 2: FIX (cycle $cycle)"
-        phase_fix "$branch"
+        phase_fix "$branch" || warn "Fix session exited with error — checking results anyway"
 
         # Check if fix produced changes
         local changes
@@ -575,15 +613,23 @@ main() {
           local recent_diff
           recent_diff="$(git log --oneline -1 --since='5 minutes ago' 2>/dev/null | wc -l)"
           if [[ "$recent_diff" -eq 0 ]]; then
-            warn "Fix produced no changes — nothing to fix"
-            final_status="fix-failed"
+            # No changes — check if this is because all findings are already resolved
+            local no_fix_check
+            no_fix_check="$(phase_check "$branch" "$cycle")"
+            if [[ "$no_fix_check" == "converged" ]]; then
+              success "No fixes needed — all qualifying findings already resolved"
+              final_status="converged"
+            else
+              warn "Fix produced no changes but findings remain — stalled"
+              final_status="stalled"
+            fi
             break
           fi
         fi
 
         # Phase 3: Verify (MANDATORY post-fix update review)
         info "Phase 3: VERIFY (cycle $cycle)"
-        phase_verify "$branch"
+        phase_verify "$branch" || warn "Verify session exited with error — checking results anyway"
 
         # Phase 4: Check convergence
         info "Phase 4: CHECK (cycle $cycle)"
