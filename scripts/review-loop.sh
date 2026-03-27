@@ -348,7 +348,24 @@ phase_check() {
     return
   fi
 
-  # Use script to count qualifying findings
+  # CRITICAL: Verify that the review was actually updated by the verify phase.
+  # If the verify phase failed or didn't write, we must NOT declare convergence.
+  # Check that review.md was modified within the last 10 minutes.
+  local file_age
+  if [[ "$(uname)" == "Darwin" ]]; then
+    file_age=$(( $(date +%s) - $(stat -f%m "$review_path") ))
+  else
+    file_age=$(( $(date +%s) - $(stat -c%Y "$review_path") ))
+  fi
+
+  if [[ "$file_age" -gt 600 ]]; then
+    warn "review.md for $branch was not updated by verify phase (last modified ${file_age}s ago)"
+    warn "Verify phase may have failed — treating as stalled (NOT converged)"
+    echo "stalled"
+    return
+  fi
+
+  # Use script to count qualifying findings — this is the ONLY convergence signal
   local findings_json
   findings_json="$(run_script review-status --review-path "$review_path" --action list-findings 2>/dev/null || echo "[]")"
 
@@ -359,9 +376,21 @@ phase_check() {
     (.severity == "critical" or .severity == "suggestion")
   )] | length')"
 
-  info "Branch $branch cycle $cycle: $qualifying qualifying findings remaining"
+  # Also count total findings to detect empty/corrupt review
+  local total_findings
+  total_findings="$(echo "$findings_json" | jq 'length')"
+
+  if [[ "$total_findings" -eq 0 ]]; then
+    warn "review.md has 0 findings — review may not have been written properly"
+    warn "Treating as stalled to prevent false convergence"
+    echo "stalled"
+    return
+  fi
+
+  info "Branch $branch cycle $cycle: $qualifying qualifying / $total_findings total findings"
 
   if [[ "$qualifying" -eq 0 ]]; then
+    success "CONVERGED: 0 qualifying findings (verified by review-status script)"
     echo "converged"
   elif [[ "$cycle" -ge "$MAX_CYCLES" ]]; then
     echo "hard-cap"

@@ -499,6 +499,18 @@ Each executor: validates targets still exist, reads current code, applies fixes,
 
 Automated review→fix→update cycle. Runs until critical/suggestion findings converge or max cycles reached.
 
+**Recommended: Use the bash orchestrator for multi-branch loops.** It spawns a fresh Claude session per phase (no context pressure):
+```bash
+${CLAUDE_PLUGIN_ROOT}/scripts/review-loop.sh --stack "feat/base-branch" --project "project-name"
+${CLAUDE_PLUGIN_ROOT}/scripts/review-loop.sh --branches "feat/a feat/b" --max-cycles 3
+${CLAUDE_PLUGIN_ROOT}/scripts/review-loop.sh --resume
+${CLAUDE_PLUGIN_ROOT}/scripts/review-loop.sh --dry-run --stack "feat/base"
+```
+
+The bash script handles state, convergence detection, and rebase between branches. Each phase (review, fix, verify) gets a fresh context. Convergence is determined by the `review-status --action list-findings` script — NOT by LLM judgment.
+
+For single-branch or in-session use, the inline flow below also works:
+
 ### Arguments
 
 | Argument | Required | Description |
