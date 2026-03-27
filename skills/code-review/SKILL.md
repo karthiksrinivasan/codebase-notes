@@ -214,7 +214,7 @@ git diff $MERGE_BASE <head>
 1. Read notes index: `~/.claude/repo_notes/<repo_id>/notes/00-overview.md`
 2. Match changed files to notes via `git_tracked_paths` frontmatter. Read matching notes.
 3. Read repo's `CLAUDE.md` and/or `AGENTS.md` for Standards Compliance persona.
-4. Read relevant project notes from `projects/`.
+4. If branch/PR relates to an active project, read ONLY `projects/<name>/context.md` — not other project files.
 
 **Branch-mode enrichment** (no PR metadata):
 1. Read full commit bodies: `git log --format="%B" $MERGE_BASE..<head>`
@@ -505,7 +505,7 @@ Automated review→fix→update cycle. Runs until critical/suggestion findings c
 |----------|----------|-------------|
 | `"branch1" "branch2" ...` | Yes (unless `--stack`) | Branches to review in order |
 | `--stack BASE` | No | Auto-discover stacked branches via `run-script review-stack --base <BASE>` |
-| `--project NAME` | No | Project notes for domain context (routed to DE + SA personas only) |
+| `--project NAME` | No | Project context.md only — routed to DE, SA, APT personas. Does NOT read other project files. |
 | `--max-cycles N` | No | Max fix cycles per branch (default: 3) |
 | `--auto-approve` | No | Skip fix-plan confirmation, auto-defer conflicts, auto-skip failed clusters |
 | `--dry-run` | No | Preview branch list + existing findings without executing |
@@ -528,7 +528,7 @@ Automated review→fix→update cycle. Runs until critical/suggestion findings c
    **Progress:** Announce `### Branch N/M: <name>`
 
    a. **Load context:**
-      - If `--project`: read project notes, route to DE + SA only
+      - If `--project`: read ONLY `~/.claude/repo_notes/<repo_id>/projects/<name>/context.md` for project context. Do NOT read other files in the project folder (research data, open questions, etc. will pollute context). Route to DE, SA, and APT personas only.
       - If stacked and parent completed: re-read parent's POST-FIX review.md for cross-branch context (summary + unresolved findings)
 
    b. **Review:** Check if `code-reviews/<slug>/` exists.

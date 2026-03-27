@@ -352,6 +352,8 @@ def run_stack(args) -> int:
                 )
             if r_pr.returncode == 0:
                 prs = json.loads(r_pr.stdout)
+                # Filter to open MRs/PRs only (glab returns all states)
+                prs = [p for p in prs if p.get("state", "").lower() in ("open", "opened")]
                 if prs:
                     pr = prs[0]
                     base_entry["pr"] = pr.get("number") or pr.get("iid")
@@ -1168,8 +1170,16 @@ def run_loop_state(args) -> int:
         if not branches_raw:
             print("error: --branches required for write action", file=sys.stderr)
             return 1
-        branches = json.loads(branches_raw)
-        loop_args = json.loads(loop_args_raw) if loop_args_raw else {}
+        try:
+            branches = json.loads(branches_raw)
+        except json.JSONDecodeError as e:
+            print(f"error: invalid JSON in --branches: {e}", file=sys.stderr)
+            return 1
+        try:
+            loop_args = json.loads(loop_args_raw) if loop_args_raw else {}
+        except json.JSONDecodeError as e:
+            print(f"error: invalid JSON in --loop-args: {e}", file=sys.stderr)
+            return 1
 
         state = {
             "started": datetime.now(timezone.utc).isoformat(),
