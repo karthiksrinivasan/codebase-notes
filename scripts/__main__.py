@@ -106,6 +106,21 @@ def main() -> int:
     fm_parser.add_argument("--action", required=True, choices=["read", "update"], help="Action to perform")
     fm_parser.add_argument("--set", action="append", help="KEY=VALUE pair (repeatable, for update)")
 
+    # review-stack
+    stack_parser = subparsers.add_parser("review-stack", help="Discover stacked branch chain from base")
+    stack_parser.add_argument("--base", required=True, help="Base branch of the stack")
+
+    # review-loop-state
+    loop_state_parser = subparsers.add_parser("review-loop-state", help="Manage loop state file")
+    loop_state_parser.add_argument("--review-dir", required=True, help="Code reviews directory path")
+    loop_state_parser.add_argument("--action", required=True, choices=["read", "write", "update-branch"],
+                                   help="Action to perform")
+    loop_state_parser.add_argument("--branches", help="JSON branch list (for write action)")
+    loop_state_parser.add_argument("--loop-args", help="JSON loop arguments (for write action)")
+    loop_state_parser.add_argument("--branch", help="Branch name (for update-branch action)")
+    loop_state_parser.add_argument("--status", help="Branch status (for update-branch action)")
+    loop_state_parser.add_argument("--cycles", type=int, help="Cycle count (for update-branch action)")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -129,6 +144,8 @@ def main() -> int:
         "verify-diagrams": "scripts.verify_diagrams",
         "context-index": "scripts.context_index",
         "review-forge": "scripts.code_review",
+        "review-stack": "scripts.code_review",
+        "review-loop-state": "scripts.code_review",
         "review-preflight": "scripts.code_review",
         "review-delta": "scripts.code_review",
         "review-status": "scripts.code_review",
@@ -150,6 +167,10 @@ def main() -> int:
             return mod.run_auto_update(args)
         elif args.command == "review-forge":
             return mod.run_forge(args)
+        elif args.command == "review-stack":
+            return mod.run_stack(args)
+        elif args.command == "review-loop-state":
+            return mod.run_loop_state(args)
         elif args.command == "review-preflight":
             return mod.run_preflight(args)
         elif args.command == "review-delta":
