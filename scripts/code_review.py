@@ -143,6 +143,281 @@ def _check_cli_auth(cli: str) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Stack discovery
+# ---------------------------------------------------------------------------
+
+MAX_STACK_DEPTH = 20
+
+
+def _discover_stack_pr_chain(
+    base_branch: str,
+    forge: str,
+    cli: str,
+    visited: set,
+    depth: int,
+    max_depth: int,
+    warnings: list,
+) -> list[dict]:
+    """Discover child branches via PR/MR chain. Returns ordered list."""
+    if depth >= max_depth:
+        warnings.append(f"Stack depth cap ({max_depth}) reached at {base_branch}")
+        return []
+    if base_branch in visited:
+        warnings.append(f"Cycle detected: {base_branch} already visited")
+        return []
+    visited.add(base_branch)
+
+    children = []
+    try:
+        if forge == "github":
+            r = subprocess.run(
+                ["gh", "pr", "list", "--base", base_branch, "--json", "number,headRefName", "--state", "open"],
+                capture_output=True, text=True, timeout=15, cwd=_repo_root(),
+            )
+        elif forge == "gitlab":
+            # IQ-15: glab uses --output json, not -F json
+            r = subprocess.run(
+                ["glab", "mr", "list", "--target-branch", base_branch, "--output", "json"],
+                capture_output=True, text=True, timeout=15, cwd=_repo_root(),
+            )
+        else:
+            return []
+
+        if r.returncode != 0:
+            warnings.append(f"CLI command failed for {base_branch}: {r.stderr.strip()[:100]}")
+            return []
+
+        items = json.loads(r.stdout)
+        for item in items:
+            if forge == "github":
+                child_branch = item.get("headRefName", "")
+                pr_num = item.get("number")
+            else:
+                child_branch = item.get("source_branch", "")
+                pr_num = item.get("iid")
+                state = item.get("state", "").lower()
+                if state not in ("opened", "open"):
+                    continue
+
+            if child_branch and child_branch not in visited:
+                entry = {"branch": child_branch, "pr": pr_num, "base": base_branch}
+                children.append(entry)
+
+    except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError) as e:
+        warnings.append(f"Error discovering children of {base_branch}: {e}")
+        return []
+
+    # Recurse into each child
+    result = []
+    for child in children:
+        result.append(child)
+        grandchildren = _discover_stack_pr_chain(
+            child["branch"], forge, cli, visited, depth + 1, max_depth, warnings
+        )
+        result.extend(grandchildren)
+    return result
+
+
+def _discover_stack_git_topology(
+    base_branch: str,
+    repo_root: str,
+    visited: set,
+    depth: int,
+    max_depth: int,
+    refs: list[tuple[str, str]] | None = None,
+) -> list[dict]:
+    """Discover child branches via git merge-base topology. Fallback when no forge CLI.
+
+    Args:
+        base_branch: Branch to find children of.
+        repo_root: Path to the git repository root.
+        visited: Set of already-visited branch names (cycle detection).
+        depth: Current recursion depth.
+        max_depth: Maximum recursion depth.
+        refs: Pre-fetched list of (branch_name, tip_sha) tuples. Fetched once
+              by run_stack() and passed in to avoid re-fetching on each recursive
+              call (IQ-19).
+    """
+    if depth >= max_depth or base_branch in visited:
+        return []
+    visited.add(base_branch)
+
+    # Get base branch tip
+    r_base = subprocess.run(
+        ["git", "rev-parse", base_branch],
+        capture_output=True, text=True, timeout=10, cwd=repo_root,
+    )
+    if r_base.returncode != 0:
+        return []
+    base_tip = r_base.stdout.strip()
+
+    # Use pre-fetched refs if provided, otherwise fetch (IQ-19)
+    if refs is None:
+        r_refs = subprocess.run(
+            ["git", "for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads/"],
+            capture_output=True, text=True, timeout=10, cwd=repo_root,
+        )
+        if r_refs.returncode != 0:
+            return []
+        refs = []
+        for line in r_refs.stdout.strip().split("\n"):
+            if not line.strip():
+                continue
+            parts = line.split()
+            if len(parts) == 2:
+                refs.append((parts[0], parts[1]))
+
+    candidates = []
+    for branch_name, tip in refs:
+        if branch_name == base_branch or branch_name in visited:
+            continue
+        # Check if base_tip is an ancestor of candidate
+        r_anc = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", base_tip, tip],
+            capture_output=True, text=True, timeout=10, cwd=repo_root,
+        )
+        if r_anc.returncode == 0:
+            candidates.append((branch_name, tip))
+
+    # Filter to direct children: candidate is direct if no other candidate is
+    # ancestor of it.  This pairwise check is correct because all candidates are
+    # already pre-filtered to descendants of base_branch — so any candidate that
+    # is an ancestor of another candidate must lie on the path between base and
+    # that other candidate, making the other candidate non-direct (IQ-17).
+    direct_children = []
+    for i, (name_i, tip_i) in enumerate(candidates):
+        is_direct = True
+        for j, (name_j, tip_j) in enumerate(candidates):
+            if i == j:
+                continue
+            r_check = subprocess.run(
+                ["git", "merge-base", "--is-ancestor", tip_j, tip_i],
+                capture_output=True, text=True, timeout=10, cwd=repo_root,
+            )
+            if r_check.returncode == 0 and tip_j != tip_i:
+                # name_j is between base and name_i — name_i is not direct
+                is_direct = False
+                break
+        if is_direct:
+            direct_children.append({"branch": name_i, "pr": None, "base": base_branch})
+
+    # Recurse — pass the same refs list to avoid re-fetching (IQ-19)
+    result = []
+    for child in direct_children:
+        result.append(child)
+        grandchildren = _discover_stack_git_topology(
+            child["branch"], repo_root, visited, depth + 1, max_depth, refs=refs
+        )
+        result.extend(grandchildren)
+    return result
+
+
+def run_stack(args) -> int:
+    """Discover stacked branch chain from a base branch. Entry point for review-stack."""
+    base_branch = args.base
+    warnings: list[str] = []
+
+    # Detect forge
+    r = _git("remote", "get-url", "origin")
+    remote_url = r.stdout.strip() if r.returncode == 0 else ""
+    forge_info = _detect_forge(remote_url)
+
+    # Check CLI usability
+    cli_usable = False
+    if forge_info["cli"]:
+        auth = _check_cli_auth(forge_info["cli"])
+        cli_usable = auth["cli_usable"]
+        if auth["cli_available"] and not auth["cli_authenticated"]:
+            warnings.append(f"{forge_info['cli']} is installed but not authenticated. Falling back to git topology.")
+
+    stack = []
+    method = "none"
+
+    # Add base branch as first entry
+    base_entry = {"branch": base_branch, "pr": None, "base": "main"}
+    # Try to find the base branch's own PR
+    if cli_usable and forge_info["forge"] != "unknown":
+        try:
+            if forge_info["forge"] == "github":
+                r_pr = subprocess.run(
+                    ["gh", "pr", "list", "--head", base_branch, "--json", "number,baseRefName", "--state", "open"],
+                    capture_output=True, text=True, timeout=15, cwd=_repo_root(),
+                )
+            else:
+                # IQ-15: glab uses --output json, not -F json
+                r_pr = subprocess.run(
+                    ["glab", "mr", "list", "--source-branch", base_branch, "--output", "json"],
+                    capture_output=True, text=True, timeout=15, cwd=_repo_root(),
+                )
+            if r_pr.returncode == 0:
+                prs = json.loads(r_pr.stdout)
+                if prs:
+                    pr = prs[0]
+                    base_entry["pr"] = pr.get("number") or pr.get("iid")
+                    base_entry["base"] = pr.get("baseRefName") or pr.get("target_branch") or "main"
+        except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+            pass
+
+    stack.append(base_entry)
+
+    # Discover children
+    if cli_usable and forge_info["forge"] != "unknown":
+        # IQ-2/IQ-3: Pass visited=set(), NOT {base_branch}. The discovery
+        # functions add each branch to visited as they process it.
+        children = _discover_stack_pr_chain(
+            base_branch, forge_info["forge"], forge_info["cli"],
+            visited=set(), depth=0, max_depth=MAX_STACK_DEPTH, warnings=warnings,
+        )
+        method = "pr_chain"
+    else:
+        # Git topology fallback
+        ref_count_r = _git("for-each-ref", "--format=%(refname:short)", "refs/heads/")
+        branch_count = len(ref_count_r.stdout.strip().split("\n")) if ref_count_r.returncode == 0 else 0
+        if branch_count > 100:
+            warnings.append(f"Repository has {branch_count} branches. Git topology fallback may be slow. Consider installing {forge_info['cli'] or 'gh/glab'}.")
+
+        # IQ-19: Fetch refs once and pass to avoid re-fetching on each recursive call
+        refs: list[tuple[str, str]] = []
+        r_refs = _git("for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads/")
+        if r_refs.returncode == 0:
+            for line in r_refs.stdout.strip().split("\n"):
+                if not line.strip():
+                    continue
+                parts = line.split()
+                if len(parts) == 2:
+                    refs.append((parts[0], parts[1]))
+
+        # IQ-2/IQ-3: Pass visited=set(), NOT {base_branch}. The discovery
+        # functions add each branch to visited as they process it.
+        children = _discover_stack_git_topology(
+            base_branch, _repo_root(), visited=set(), depth=0,
+            max_depth=MAX_STACK_DEPTH, refs=refs,
+        )
+        method = "git_topology"
+
+    stack.extend(children)
+
+    # Check for multiple children (disambiguation needed)
+    seen_bases = {}
+    for entry in stack[1:]:  # Skip the base itself
+        parent = entry["base"]
+        seen_bases.setdefault(parent, []).append(entry["branch"])
+    for parent, kids in seen_bases.items():
+        if len(kids) > 1:
+            warnings.append(f"Branch {parent} has multiple children: {kids}. Orchestrator should disambiguate.")
+
+    result = {
+        "base": base_branch,
+        "stack": stack,
+        "method": method,
+        "forge": forge_info["forge"],
+        "warnings": warnings,
+    }
+    print(json.dumps(result, indent=2))
+    return 0
+
+
 def run_forge(args) -> int:
     """Detect git forge from remote URL. Entry point for review-forge command."""
     remote_name = getattr(args, "remote", None) or "origin"
