@@ -522,18 +522,21 @@ For single-branch or in-session use, the inline flow below also works:
 | `--auto-approve` | No | Skip fix-plan confirmation, auto-defer conflicts, auto-skip failed clusters |
 | `--dry-run` | No | Preview branch list + existing findings without executing |
 | `--resume` | No | Resume from `loop-state.json` |
+| `--reset` | No | Delete existing `loop-state.json` and start fresh. Use when re-running after a completed loop. |
 
 **Note:** Loop flags are passed via `--loop-args` when invoked programmatically.
 
 ### Flow
 
-1. **Resolve branches:**
+1. **Reset (if `--reset`):** Delete `loop-state.json` if it exists. This clears all prior loop state so the loop starts fresh. Without `--reset`, an existing `loop-state.json` with all branches converged will cause the loop to exit immediately with "nothing to do."
+
+2. **Resolve branches:**
    - `--resume`: `run-script review-loop-state --review-dir <path> --action read`, skip branches with status `converged`, `stalled`, `hard-cap`, `clean`
    - `--stack`: `run-script review-stack --base <BASE>`, get ordered list. If multiple children at any level, present disambiguation.
    - Explicit list: use as provided
    - `--dry-run`: show branch table (see Dry-Run Output below), exit
 
-2. **Initialize state:** `run-script review-loop-state --review-dir <path> --action write --branches '<json>' --args '<json>'`
+3. **Initialize state:** `run-script review-loop-state --review-dir <path> --action write --branches '<json>' --args '<json>'`
 
 3. **For each branch:**
 

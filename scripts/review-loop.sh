@@ -16,6 +16,7 @@
 #   ./scripts/review-loop.sh --stack feat/vertical-slice               # Stack mode
 #   ./scripts/review-loop.sh --branches "feat/a feat/b feat/c"         # Explicit list
 #   ./scripts/review-loop.sh --resume                                  # Resume from state
+#   ./scripts/review-loop.sh --reset --stack feat/vertical-slice       # Clear prior state, start fresh
 #   ./scripts/review-loop.sh --dry-run --stack feat/vertical-slice     # Preview only
 #   ./scripts/review-loop.sh --stack feat/x --project comp-embeddings  # With project context
 #
@@ -41,6 +42,7 @@ BRANCHES=""
 PROJECT=""
 DRY_RUN=false
 RESUME=false
+RESET=false
 AUTO_APPROVE=true  # Always auto-approve in headless mode
 
 while [[ $# -gt 0 ]]; do
@@ -50,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     --project)    PROJECT="$2"; shift 2 ;;
     --max-cycles) MAX_CYCLES="$2"; shift 2 ;;
     --resume)     RESUME=true; shift ;;
+    --reset)      RESET=true; shift ;;
     --dry-run)    DRY_RUN=true; shift ;;
     --model)      MODEL="$2"; shift 2 ;;
     -h|--help)
@@ -98,12 +101,31 @@ state_set() {
 # ─── Discover Branches ────────────────────────────────────────────────────────
 
 discover_branches() {
+  # --reset: clear prior state so loop starts fresh
+  if [[ "$RESET" == "true" ]]; then
+    if [[ -f "$STATE_FILE" ]]; then
+      info "Resetting: removing existing $STATE_FILE"
+      rm -f "$STATE_FILE"
+    fi
+  fi
+
   if [[ "$RESUME" == "true" ]]; then
     if [[ ! -f "$STATE_FILE" ]]; then
       die "No loop-state.json found. Cannot resume."
     fi
     info "Resuming from $STATE_FILE"
     return 0
+  fi
+
+  # If state exists and not reset, check if already complete
+  if [[ -f "$STATE_FILE" ]]; then
+    local all_done
+    all_done="$(jq '[.branches[] | select(.status == "pending" or .status == "in-progress")] | length' "$STATE_FILE" 2>/dev/null || echo "0")"
+    if [[ "$all_done" -eq 0 ]]; then
+      warn "All branches in loop-state.json are already complete."
+      warn "Use --reset to start a fresh loop, or --resume to re-check."
+      die "Nothing to do. Pass --reset to clear prior state."
+    fi
   fi
 
   local branch_list=()
