@@ -543,16 +543,22 @@ Automated review→fix→update cycle. Runs until critical/suggestion findings c
    d. **Fix cycle** (up to `--max-cycles`):
       Track `min_findings_seen` across cycles.
 
-      - Run `fix` flow (pass `--auto-approve` if set)
+      **Step 1 — Fix:** Run `fix` flow (pass `--auto-approve` if set)
       - **Fix-failed check:** `git diff --stat` — if no changes, log "nothing to fix", exit cycle
-      - Run `update` flow
-      - Count findings where status in (new, missed, regressed) AND severity in (critical, suggestion)
+      - **Per-cluster progress:** Log `Cluster K/M: pass` or `Cluster K/M: fail`
+
+      **Step 2 — Re-review (MANDATORY):** Run `update` flow to verify fixes and detect new issues.
+      - This is the VALIDATION step. Do NOT skip it. Do NOT check convergence before this runs.
+      - The update re-runs all personas against the post-fix code.
+
+      **Step 3 — Convergence check (ONLY after update completes):**
+      - `run-script review-status --review-path <path> --action list-findings`
+      - Count findings where status in (`new`, `missed`, `regressed`) AND severity in (`critical`, `suggestion`)
       - **Progress:** Log `Cycle N result: X new, Y resolved`
-      - **Converged:** count = 0 → exit cycle
+      - **Converged:** count = 0 → exit cycle, move to next branch
       - **Stalled:** count >= `min_findings_seen` → log "stalled at N findings", exit cycle
       - **Hard cap:** cycle = `--max-cycles` → log remaining, exit cycle
-      - **Continue:** update `min_findings_seen = min(min_findings_seen, count)`
-      - **Per-cluster progress:** Log `Cluster K/M: pass` or `Cluster K/M: fail`
+      - **Continue:** update `min_findings_seen = min(min_findings_seen, count)`, go to Step 1
       - Checkpoint: `run-script review-loop-state --action update-branch --branch <name> --status in-progress --cycles <N>`
 
    e. **Finalize branch:**
