@@ -19,6 +19,7 @@ import sys
 from datetime import date
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import yaml
 
@@ -56,6 +57,71 @@ FINDING_RE = re.compile(
 
 # Persona section header: ## N. Persona Name
 PERSONA_SECTION_RE = re.compile(r"^##\s+\d+\.\s+(?P<name>.+)$")
+
+# ---------------------------------------------------------------------------
+# Forge detection (shared by run_forge and run_preflight)
+# ---------------------------------------------------------------------------
+
+
+def _parse_hostname(url: str) -> str:
+    """Extract hostname from a git remote URL (SSH or HTTPS)."""
+    if not url:
+        return ""
+    # ssh:// scheme: route to urlparse (IQ-1)
+    if url.startswith("ssh://"):
+        try:
+            parsed = urlparse(url)
+            if parsed.hostname:
+                return parsed.hostname.lower()
+        except Exception:
+            pass
+        return ""
+    # SSH: git@host:org/repo.git
+    if url.startswith("git@") or (not url.startswith("http") and ":" in url):
+        # git@gitlab.com:org/repo.git -> gitlab.com
+        at_idx = url.find("@")
+        colon_idx = url.find(":", at_idx + 1)
+        if at_idx >= 0 and colon_idx > at_idx:
+            return url[at_idx + 1 : colon_idx].lower()
+    # HTTPS: https://host/org/repo.git
+    try:
+        parsed = urlparse(url)
+        if parsed.hostname:
+            return parsed.hostname.lower()
+    except Exception:
+        pass
+    return ""
+
+
+def _detect_forge(remote_url: str) -> dict:
+    """Detect forge type from git remote URL. Handles SSH, HTTPS, self-hosted.
+
+    Returns dict with: forge, cli, hostname.
+    Does NOT check CLI availability — that's done by the caller.
+    """
+    hostname = _parse_hostname(remote_url)
+
+    # Match hostname (suffix first for exactness, then contains for self-hosted)
+    forge = "unknown"
+    cli = None
+
+    if hostname.endswith("github.com"):
+        forge, cli = "github", "gh"
+    elif hostname.endswith("gitlab.com"):
+        forge, cli = "gitlab", "glab"
+    elif "github" in hostname:
+        forge, cli = "github", "gh"
+    elif "gitlab" in hostname:
+        forge, cli = "gitlab", "glab"
+
+    # Spec #15: fallback — check for .gitlab-ci.yml in repo root
+    if forge == "unknown" and hostname:
+        repo_root = os.environ.get("REPO_ROOT", os.getcwd())
+        if os.path.isfile(os.path.join(repo_root, ".gitlab-ci.yml")):
+            forge, cli = "gitlab", "glab"
+
+    return {"forge": forge, "cli": cli, "hostname": hostname}
+
 
 # ---------------------------------------------------------------------------
 # Git helpers
