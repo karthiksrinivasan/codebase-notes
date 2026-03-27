@@ -1093,6 +1093,322 @@ def _action_list_findings(args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# 3b. review-assess — deferred registry + finding assessment
+# ---------------------------------------------------------------------------
+
+_SIMILARITY_THRESHOLD = 0.6  # Jaccard similarity for fuzzy title matching
+
+
+def _tokenize(text: str) -> set[str]:
+    """Lowercase and split into word tokens for similarity comparison."""
+    return set(re.findall(r"[a-z0-9_]+", text.lower()))
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    """Jaccard similarity between two token sets."""
+    if not a and not b:
+        return 1.0
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def _match_finding_to_deferred(
+    finding: dict, deferred_entries: list[dict]
+) -> Optional[dict]:
+    """Check if a finding matches any entry in the deferred registry.
+
+    Matching criteria (any of):
+    1. Same file + title similarity >= threshold
+    2. Title similarity >= higher threshold (0.75) regardless of file
+    3. Same persona prefix + same file path
+    """
+    f_tokens = _tokenize(finding.get("title", ""))
+    f_file = (finding.get("file") or "").strip()
+
+    for entry in deferred_entries:
+        e_tokens = _tokenize(entry.get("summary", ""))
+        e_file = (entry.get("file") or "").strip()
+
+        title_sim = _jaccard(f_tokens, e_tokens)
+
+        # Criterion 1: same file + moderate title similarity
+        if f_file and e_file and f_file == e_file and title_sim >= _SIMILARITY_THRESHOLD:
+            return entry
+
+        # Criterion 2: high title similarity alone
+        if title_sim >= 0.75:
+            return entry
+
+        # Criterion 3: same persona prefix + same file
+        f_prefix = finding.get("id", "").split("-")[0] if finding.get("id") else ""
+        e_prefix = entry.get("id", "").split("-")[0] if entry.get("id") else ""
+        if f_prefix and f_prefix == e_prefix and f_file and f_file == e_file:
+            return entry
+
+    return None
+
+
+def _check_contradiction(
+    finding: dict, fix_history: list[dict]
+) -> Optional[dict]:
+    """Check if a finding suggests reverting a prior fix.
+
+    A contradiction is when:
+    - The finding targets a file that was modified by a prior fix
+    - AND the finding's title/description suggests changing something
+      that was explicitly fixed before
+    """
+    f_file = (finding.get("file") or "").strip()
+    if not f_file:
+        return None
+
+    f_tokens = _tokenize(finding.get("title", ""))
+
+    for fix in fix_history:
+        files_modified = fix.get("files_modified", [])
+        findings_fixed = fix.get("findings_fixed", [])
+
+        # Check if the finding targets a file modified by this fix
+        if f_file not in files_modified:
+            continue
+
+        # Check if the finding's topic overlaps with what was fixed
+        for fixed_id in findings_fixed:
+            fixed_summary = fix.get("summaries", {}).get(fixed_id, "")
+            if not fixed_summary:
+                continue
+            fixed_tokens = _tokenize(fixed_summary)
+            if _jaccard(f_tokens, fixed_tokens) >= _SIMILARITY_THRESHOLD:
+                return fix
+
+    return None
+
+
+def _read_deferred_registry(registry_path: Path) -> dict:
+    """Read the deferred registry, returning empty structure if not found."""
+    if registry_path.is_file():
+        try:
+            return json.loads(registry_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {"entries": [], "fix_history": []}
+
+
+def _write_deferred_registry(registry_path: Path, registry: dict) -> None:
+    """Write the deferred registry to disk."""
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(
+        json.dumps(registry, indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def run_assess(args) -> int:
+    """Assess findings against deferred registry and fix history.
+
+    Reads the current review.md findings and compares against the deferred
+    registry. Outputs assessed findings as JSON with classification:
+    - new: genuinely new, not previously seen → qualifying
+    - re-discovered: matches a deferred entry → not qualifying
+    - contradiction: suggests reverting a prior fix → flagged, not qualifying
+    """
+    review_path = Path(args.review_path)
+    if not review_path.is_file():
+        print(f"error: {review_path} not found", file=sys.stderr)
+        return 1
+
+    # Read current findings
+    text = review_path.read_text(encoding="utf-8")
+    findings = parse_findings(text)
+
+    # Read deferred registry
+    registry_path = Path(args.registry_path) if args.registry_path else (
+        review_path.parent / "deferred-registry.json"
+    )
+    registry = _read_deferred_registry(registry_path)
+    deferred_entries = registry.get("entries", [])
+    fix_history = registry.get("fix_history", [])
+
+    # Assess each qualifying finding
+    assessed = []
+    for f in findings:
+        status = (f.get("status") or "").lower()
+        severity = (f.get("severity") or "").lower()
+
+        # Only assess qualifying findings (new/missed/regressed + critical/suggestion)
+        is_qualifying = (
+            status in ("new", "missed", "regressed")
+            and severity in ("critical", "suggestion")
+        )
+
+        if not is_qualifying:
+            assessed.append({**f, "classification": "not-qualifying", "match": None})
+            continue
+
+        # Check against deferred registry
+        deferred_match = _match_finding_to_deferred(f, deferred_entries)
+        if deferred_match:
+            assessed.append({
+                **f,
+                "classification": "re-discovered",
+                "match": deferred_match.get("id", "unknown"),
+                "match_reason": deferred_match.get("reason", ""),
+            })
+            continue
+
+        # Check for contradiction with fix history
+        contradiction = _check_contradiction(f, fix_history)
+        if contradiction:
+            assessed.append({
+                **f,
+                "classification": "contradiction",
+                "match": f"cycle-{contradiction.get('cycle', '?')}",
+                "match_detail": contradiction.get("findings_fixed", []),
+            })
+            continue
+
+        # Genuinely new
+        assessed.append({**f, "classification": "new", "match": None})
+
+    # Count results
+    new_count = sum(1 for a in assessed if a["classification"] == "new")
+    rediscovered_count = sum(1 for a in assessed if a["classification"] == "re-discovered")
+    contradiction_count = sum(1 for a in assessed if a["classification"] == "contradiction")
+
+    result = {
+        "findings": [{
+            "id": a["id"],
+            "severity": a["severity"],
+            "title": a["title"],
+            "status": a.get("status"),
+            "classification": a["classification"],
+            "match": a.get("match"),
+        } for a in assessed],
+        "summary": {
+            "total": len(assessed),
+            "new_qualifying": new_count,
+            "re_discovered": rediscovered_count,
+            "contradictions": contradiction_count,
+        },
+    }
+
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def run_deferred(args) -> int:
+    """Manage the deferred registry: add entries, record fix history, read."""
+    action = args.action
+
+    registry_path = Path(args.registry_path)
+    registry = _read_deferred_registry(registry_path)
+
+    if action == "add-deferred":
+        # Add or update a deferred finding entry
+        entry_json = json.loads(args.entry)
+        entries = registry.get("entries", [])
+
+        # Dedup: update if same file+similar title exists
+        entry_tokens = _tokenize(entry_json.get("summary", ""))
+        updated = False
+        for existing in entries:
+            existing_tokens = _tokenize(existing.get("summary", ""))
+            if _jaccard(entry_tokens, existing_tokens) >= 0.75:
+                existing["last_seen_cycle"] = entry_json.get("cycle", existing.get("last_seen_cycle", 0))
+                existing["reason"] = entry_json.get("reason", existing.get("reason", ""))
+                updated = True
+                break
+
+        if not updated:
+            entries.append({
+                "id": entry_json.get("id", ""),
+                "summary": entry_json.get("summary", ""),
+                "reason": entry_json.get("reason", ""),
+                "file": entry_json.get("file", ""),
+                "severity": entry_json.get("severity", ""),
+                "first_deferred_cycle": entry_json.get("cycle", 1),
+                "last_seen_cycle": entry_json.get("cycle", 1),
+            })
+
+        registry["entries"] = entries
+        _write_deferred_registry(registry_path, registry)
+        print(json.dumps({"status": "added", "total_entries": len(entries)}))
+        return 0
+
+    elif action == "add-fix":
+        # Record a fix cycle in history
+        fix_json = json.loads(args.entry)
+        history = registry.get("fix_history", [])
+        history.append({
+            "cycle": fix_json.get("cycle", 0),
+            "commit": fix_json.get("commit", ""),
+            "findings_fixed": fix_json.get("findings_fixed", []),
+            "files_modified": fix_json.get("files_modified", []),
+            "summaries": fix_json.get("summaries", {}),
+        })
+        registry["fix_history"] = history
+        _write_deferred_registry(registry_path, registry)
+        print(json.dumps({"status": "recorded", "total_fixes": len(history)}))
+        return 0
+
+    elif action == "read":
+        print(json.dumps(registry, indent=2))
+        return 0
+
+    elif action == "auto-populate":
+        # Scan review.md for deferred/fixed findings and populate the registry
+        review_path = Path(args.review_path) if args.review_path else None
+        if not review_path or not review_path.is_file():
+            print(f"error: review_path required for auto-populate", file=sys.stderr)
+            return 1
+
+        text = review_path.read_text(encoding="utf-8")
+        findings = parse_findings(text)
+        cycle = args.cycle or 1
+
+        entries = registry.get("entries", [])
+        added = 0
+        for f in findings:
+            status = (f.get("status") or "").lower()
+            if status != "deferred":
+                continue
+
+            # Check dedup
+            f_tokens = _tokenize(f.get("title", ""))
+            already_exists = any(
+                _jaccard(f_tokens, _tokenize(e.get("summary", ""))) >= 0.75
+                for e in entries
+            )
+            if already_exists:
+                # Update last_seen_cycle
+                for e in entries:
+                    if _jaccard(f_tokens, _tokenize(e.get("summary", ""))) >= 0.75:
+                        e["last_seen_cycle"] = cycle
+                        break
+                continue
+
+            entries.append({
+                "id": f.get("id", ""),
+                "summary": f.get("title", ""),
+                "reason": f.get("reason") or f.get("fix") or "",
+                "file": f.get("file", ""),
+                "severity": f.get("severity", ""),
+                "first_deferred_cycle": cycle,
+                "last_seen_cycle": cycle,
+            })
+            added += 1
+
+        registry["entries"] = entries
+        _write_deferred_registry(registry_path, registry)
+        print(json.dumps({"status": "populated", "added": added, "total": len(entries)}))
+        return 0
+
+    else:
+        print(f"error: unknown action '{action}'", file=sys.stderr)
+        return 1
+
+
+# ---------------------------------------------------------------------------
 # 4. review-frontmatter
 # ---------------------------------------------------------------------------
 

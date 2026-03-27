@@ -329,26 +329,6 @@ ${project_context}${cross_context}" \
     "$log_file"
 }
 
-# ─── Phase: CONVERGENCE GATE (fresh review, not update) ──────────────────────
-
-phase_gate_review() {
-  local branch="$1"
-  local slug
-  slug="$(echo "$branch" | sed 's|/|-|g')"
-  local review_dir="${REVIEWS_DIR}/${slug}"
-
-  # Archive the existing review so code-review runs as "new" (fresh personas)
-  if [[ -d "$review_dir" ]]; then
-    local gate_ts
-    gate_ts="$(date +%Y%m%d-%H%M%S)"
-    mv "$review_dir" "${review_dir}.pre-gate-${gate_ts}"
-    info "Archived existing review for fresh gate review"
-  fi
-
-  # Run a fresh review (phase_review will see no directory → mode=new)
-  phase_review "$branch"
-}
-
 # ─── Phase: FIX ───────────────────────────────────────────────────────────────
 
 phase_fix() {
@@ -393,37 +373,101 @@ ${fix_project_context}" \
     "$log_file"
 }
 
-# ─── Phase: VERIFY (update review after fix) ──────────────────────────────────
+# ─── Phase: CONFIRM (fresh review + script-based assess) ─────────────────────
+#
+# Two sub-steps in sequence:
+# 1. CONFIRM-REVIEW: Fresh code-review new (archives prior review, unbiased)
+# 2. CONFIRM-ASSESS: Script compares findings against deferred registry
+#    → re-discoveries auto-deferred, contradictions flagged, only new qualify
 
-phase_verify() {
+phase_confirm() {
   local branch="$1"
+  local cycle="$2"
   local slug
   slug="$(echo "$branch" | sed 's|/|-|g')"
+  local review_dir="${REVIEWS_DIR}/${slug}"
+  local registry_path="${REVIEWS_DIR}/${slug}/deferred-registry.json"
 
-  local log_file="${LOG_DIR}/${slug}-verify-$(date +%s).log"
+  # --- Sub-step 1: Archive existing review and run fresh ---
+  if [[ -d "$review_dir" ]]; then
+    # Save deferred registry before archiving (it must survive the archive)
+    local saved_registry=""
+    if [[ -f "$registry_path" ]]; then
+      saved_registry="$(cat "$registry_path")"
+    fi
 
-  run_claude \
-    "Verify fixes for $branch (update review)" \
-    "Run /codebase-notes:code-review update \"${branch}\"
+    local confirm_ts
+    confirm_ts="$(date +%Y%m%d-%H%M%S)"
+    mv "$review_dir" "${review_dir}.pre-confirm-${confirm_ts}"
+    info "Archived existing review for fresh confirm review"
 
-This is the MANDATORY post-fix verification step.
-Re-run all personas against the post-fix code to:
-1. Confirm fixes resolved the targeted findings
-2. Detect any new issues introduced by the fixes
-3. Classify findings: new/persists/resolved/missed/regressed
+    # Restore deferred registry into new directory
+    if [[ -n "$saved_registry" ]]; then
+      mkdir -p "$review_dir"
+      echo "$saved_registry" > "$registry_path"
+    fi
+  fi
 
-After the update, run:
-  review-status --action list-findings to get the current finding counts.
+  # Run fresh review (phase_review sees no review.md → mode=new)
+  info "CONFIRM sub-step 1: Fresh review (unbiased)"
+  phase_review "$branch" || warn "Confirm review exited with error — assessing results anyway"
 
-Report the finding counts clearly:
-- Total critical (status=new,missed,regressed)
-- Total suggestions (status=new,missed,regressed)
-- Total resolved
-- Assessment: CONVERGED (0 qualifying) or HAS_ISSUES (N remaining)" \
-    "$log_file"
+  # --- Sub-step 2: Script-based assessment ---
+  local review_path="${review_dir}/review.md"
+  if [[ ! -f "$review_path" ]]; then
+    warn "No review.md after confirm review — treating as stalled" >&2
+    echo "stalled"
+    return
+  fi
+
+  info "CONFIRM sub-step 2: Assess findings against deferred registry"
+
+  # Auto-populate deferred registry from this review's deferred findings
+  run_script review-deferred \
+    --registry-path "$registry_path" \
+    --action auto-populate \
+    --review-path "$review_path" \
+    --cycle "$cycle" 2>/dev/null || true
+
+  # Run assessment
+  local assess_json
+  assess_json="$(run_script review-assess \
+    --review-path "$review_path" \
+    --registry-path "$registry_path" 2>/dev/null || echo '{"summary":{"new_qualifying":0,"total":0}}')"
+
+  local new_qualifying total re_discovered contradictions
+  new_qualifying="$(echo "$assess_json" | jq '.summary.new_qualifying')"
+  total="$(echo "$assess_json" | jq '.summary.total')"
+  re_discovered="$(echo "$assess_json" | jq '.summary.re_discovered')"
+  contradictions="$(echo "$assess_json" | jq '.summary.contradictions')"
+
+  # Log assessment results to stderr (not captured by $())
+  info "ASSESS: $new_qualifying new qualifying, $re_discovered re-discovered, $contradictions contradictions (of $total total)" >&2
+
+  if [[ "$re_discovered" -gt 0 ]]; then
+    info "ASSESS: $re_discovered findings were previously deferred — not counted as qualifying" >&2
+  fi
+  if [[ "$contradictions" -gt 0 ]]; then
+    warn "ASSESS: $contradictions findings contradict prior fixes — flagged, not counted" >&2
+  fi
+
+  # Return convergence decision
+  if [[ "$total" -eq 0 ]]; then
+    warn "Confirm review has 0 findings — may not have been written properly" >&2
+    echo "stalled"
+  elif [[ "$new_qualifying" -eq 0 ]]; then
+    success "CONVERGED: 0 new qualifying findings after assessment" >&2
+    echo "converged"
+  elif [[ "$cycle" -ge "$MAX_CYCLES" ]]; then
+    echo "hard-cap"
+  else
+    echo "continue"
+  fi
 }
 
-# ─── Phase: CHECK (parse results, decide next action) ─────────────────────────
+# ─── Phase: CHECK (parse raw review, decide next action) ─────────────────────
+# Used only after the initial REVIEW (before any fix cycle).
+# After FIX, CONFIRM handles both review and check.
 
 phase_check() {
   local branch="$1"
@@ -433,59 +477,92 @@ phase_check() {
   local review_path="${REVIEWS_DIR}/${slug}/review.md"
 
   if [[ ! -f "$review_path" ]]; then
-    warn "No review.md found for $branch after verify — treating as stalled" >&2
+    warn "No review.md found — treating as stalled" >&2
     echo "stalled"
     return
   fi
 
-  # CRITICAL: Verify that the review was actually updated by the verify phase.
-  # If the verify phase failed or didn't write, we must NOT declare convergence.
-  # Check that review.md was modified within the last 10 minutes.
-  local file_mtime file_age
-  # Try GNU stat first (works on Linux and macOS with coreutils), fallback to BSD stat
-  file_mtime="$(stat -c%Y "$review_path" 2>/dev/null || stat -f%m "$review_path" 2>/dev/null || echo "0")"
-  file_age=$(( $(date +%s) - file_mtime ))
-
-  if [[ "$file_age" -gt 600 ]]; then
-    warn "review.md for $branch was not updated by verify phase (last modified ${file_age}s ago)" >&2
-    warn "Verify phase may have failed — treating as stalled (NOT converged)" >&2
-    echo "stalled"
-    return
-  fi
-
-  # Use script to count qualifying findings — this is the ONLY convergence signal
+  # Use script to count qualifying findings
   local findings_json
   findings_json="$(run_script review-status --review-path "$review_path" --action list-findings 2>/dev/null || echo "[]")"
 
-  # Count qualifying: status in (new, missed, regressed) AND severity in (critical, suggestion)
   local qualifying
   qualifying="$(echo "$findings_json" | jq '[.[] | select(
     (.status == "new" or .status == "missed" or .status == "regressed") and
     (.severity == "critical" or .severity == "suggestion")
   )] | length')"
 
-  # Also count total findings to detect empty/corrupt review
   local total_findings
   total_findings="$(echo "$findings_json" | jq 'length')"
 
   if [[ "$total_findings" -eq 0 ]]; then
-    warn "review.md has 0 findings — review may not have been written properly" >&2
-    warn "Treating as stalled to prevent false convergence" >&2
+    warn "review.md has 0 findings — may not have been written properly" >&2
     echo "stalled"
     return
   fi
 
-  # Log to stderr so $(phase_check) only captures the result on stdout
   info "Branch $branch cycle $cycle: $qualifying qualifying / $total_findings total findings" >&2
 
   if [[ "$qualifying" -eq 0 ]]; then
-    success "CONVERGED: 0 qualifying findings (verified by review-status script)" >&2
+    success "CLEAN: 0 qualifying findings" >&2
     echo "converged"
-  elif [[ "$cycle" -ge "$MAX_CYCLES" ]]; then
-    echo "hard-cap"
   else
     echo "continue"
   fi
+}
+
+# ─── Deferred Registry Helpers ───────────────────────────────────────────────
+
+record_fix_history() {
+  local branch="$1"
+  local cycle="$2"
+  local commit="$3"
+  local slug
+  slug="$(echo "$branch" | sed 's|/|-|g')"
+  local registry_path="${REVIEWS_DIR}/${slug}/deferred-registry.json"
+  local review_path="${REVIEWS_DIR}/${slug}/review.md"
+
+  # Get list of fixed findings and modified files from the review
+  local fixed_ids modified_files summaries_json
+  fixed_ids="$(run_script review-status --review-path "$review_path" --action list-findings 2>/dev/null \
+    | jq -c '[.[] | select(.status == "fixed") | .id]' || echo '[]')"
+  modified_files="$(git diff --name-only "${commit}^..${commit}" 2>/dev/null \
+    | jq -R -s 'split("\n") | map(select(. != ""))' || echo '[]')"
+
+  # Build summaries map from fixed findings
+  summaries_json="$(run_script review-status --review-path "$review_path" --action list-findings 2>/dev/null \
+    | jq -c '[.[] | select(.status == "fixed")] | map({(.id): .title}) | add // {}' || echo '{}')"
+
+  local entry
+  entry="$(jq -n \
+    --argjson cycle "$cycle" \
+    --arg commit "$commit" \
+    --argjson findings_fixed "$fixed_ids" \
+    --argjson files_modified "$modified_files" \
+    --argjson summaries "$summaries_json" \
+    '{cycle: $cycle, commit: $commit, findings_fixed: $findings_fixed, files_modified: $files_modified, summaries: $summaries}')"
+
+  run_script review-deferred \
+    --registry-path "$registry_path" \
+    --action add-fix \
+    --entry "$entry" 2>/dev/null || true
+}
+
+populate_deferred_registry() {
+  local branch="$1"
+  local cycle="$2"
+  local slug
+  slug="$(echo "$branch" | sed 's|/|-|g')"
+  local registry_path="${REVIEWS_DIR}/${slug}/deferred-registry.json"
+  local review_path="${REVIEWS_DIR}/${slug}/review.md"
+
+  [[ -f "$review_path" ]] || return 0
+
+  run_script review-deferred \
+    --registry-path "$registry_path" \
+    --action auto-populate \
+    --review-path "$review_path" \
+    --cycle "$cycle" 2>/dev/null || true
 }
 
 # ─── Rebase Next Branch ──────────────────────────────────────────────────────
@@ -616,11 +693,11 @@ main() {
     info "Checking out $branch..."
     git checkout "$branch" 2>/dev/null || git checkout -b "$branch" "origin/$branch" 2>/dev/null || die "Cannot checkout $branch"
 
-    # Phase 1: Initial review
+    # ── Phase 1: REVIEW ────────────────────────────────────────────────────
     info "Phase 1: REVIEW"
     phase_review "$branch" || warn "Review session exited with error — checking results anyway"
 
-    # Check if clean (no qualifying findings)
+    # Check if clean (no qualifying findings → skip fix entirely)
     local check_result
     check_result="$(phase_check "$branch" 0)"
     if [[ "$check_result" == "converged" ]]; then
@@ -628,87 +705,53 @@ main() {
       state_set ".branches[$i].status = \"clean\" | .branches[$i].cycles = 0"
 
     else
-      # Fix cycles
+      # Populate deferred registry from initial review
+      populate_deferred_registry "$branch" 0
+
+      # ── Fix-Confirm cycles ──────────────────────────────────────────────
       local cycle=0
       local final_status="hard-cap"
 
       while [[ "$cycle" -lt "$MAX_CYCLES" ]]; do
         cycle=$((cycle + 1))
-        info "Fix cycle $cycle/$MAX_CYCLES for $branch"
+        info "═══ Cycle $cycle/$MAX_CYCLES for $branch ═══"
 
-        # Phase 2: Fix
-        info "Phase 2: FIX (cycle $cycle)"
+        # ── Phase 2: FIX ──────────────────────────────────────────────────
+        info "Phase 2: FIX"
         phase_fix "$branch" || warn "Fix session exited with error — checking results anyway"
 
-        # Check if fix produced changes
-        local changes
-        changes="$(git diff --stat 2>/dev/null | wc -l)"
-        if [[ "$changes" -eq 0 ]]; then
-          # Also check for committed changes since the fix might have committed
-          local recent_diff
-          recent_diff="$(git log --oneline -1 --since='5 minutes ago' 2>/dev/null | wc -l)"
-          if [[ "$recent_diff" -eq 0 ]]; then
-            # No changes — but review.md may still have stale qualifying findings.
-            # Run VERIFY anyway to let the update review reclassify them as resolved.
-            info "Fix produced no changes — running verify to update review classifications"
-            phase_verify "$branch" || warn "Verify session exited with error — checking results anyway"
-
-            local no_fix_check
-            no_fix_check="$(phase_check "$branch" "$cycle")"
-            if [[ "$no_fix_check" == "converged" ]]; then
-              # Convergence gate: fresh review to confirm
-              info "Phase 5: CONVERGENCE GATE — fresh review to confirm clean"
-              phase_gate_review "$branch" || warn "Gate review exited with error — checking results anyway"
-              local gate_no_fix
-              gate_no_fix="$(phase_check "$branch" "$cycle")"
-              if [[ "$gate_no_fix" == "converged" ]]; then
-                success "No fixes needed — confirmed clean by fresh review"
-                final_status="converged"
-              else
-                warn "Gate review found new issues but fix produced no changes — stalled"
-                final_status="stalled"
-              fi
-            else
-              warn "Fix produced no changes and findings remain after verify — stalled"
-              final_status="stalled"
-            fi
-            break
-          fi
+        # Record fix history in deferred registry (for contradiction detection)
+        local fix_commit
+        fix_commit="$(git log --oneline -1 --since='10 minutes ago' --format='%h' 2>/dev/null || echo "")"
+        if [[ -n "$fix_commit" ]]; then
+          record_fix_history "$branch" "$cycle" "$fix_commit"
         fi
 
-        # Phase 3: Verify (MANDATORY post-fix update review)
-        info "Phase 3: VERIFY (cycle $cycle)"
-        phase_verify "$branch" || warn "Verify session exited with error — checking results anyway"
+        # Populate deferred registry from fix session's deferred findings
+        populate_deferred_registry "$branch" "$cycle"
 
-        # Phase 4: Check convergence
-        info "Phase 4: CHECK (cycle $cycle)"
-        check_result="$(phase_check "$branch" "$cycle")"
+        # ── Phase 3: CONFIRM (fresh review + assess) ─────────────────────
+        info "Phase 3: CONFIRM"
+        local confirm_result
+        confirm_result="$(phase_confirm "$branch" "$cycle")"
 
         state_set ".branches[$i].cycles = $cycle"
 
-        case "$check_result" in
+        case "$confirm_result" in
           converged)
-            # Convergence gate: run a fresh review to confirm no real issues remain
-            info "Phase 5: CONVERGENCE GATE — fresh review to confirm clean"
-            phase_gate_review "$branch" || warn "Gate review exited with error — checking results anyway"
-
-            local gate_result
-            gate_result="$(phase_check "$branch" "$cycle")"
-            if [[ "$gate_result" == "converged" ]]; then
-              success "Branch $branch CONVERGED after $cycle cycle(s) — confirmed by fresh review"
-              final_status="converged"
-            else
-              info "Convergence gate found new issues — continuing to cycle $((cycle+1))"
-              final_status=""  # don't break, let loop continue
-            fi
-            [[ -n "$final_status" ]] && break
-            ;;
+            success "Branch $branch CONVERGED after $cycle cycle(s) — confirmed by fresh review + assessment"
+            final_status="converged"
+            break ;;
           hard-cap)
             warn "Branch $branch hit hard cap at $MAX_CYCLES cycles"
             final_status="hard-cap"
             break ;;
+          stalled)
+            warn "Branch $branch stalled at cycle $cycle"
+            final_status="stalled"
+            break ;;
           continue)
-            info "Branch $branch has remaining issues — continuing to cycle $((cycle+1))"
+            info "Branch $branch has new issues — continuing to cycle $((cycle+1))"
             ;;
         esac
       done

@@ -110,6 +110,21 @@ def main() -> int:
     stack_parser = subparsers.add_parser("review-stack", help="Discover stacked branch chain from base")
     stack_parser.add_argument("--base", required=True, help="Base branch of the stack")
 
+    # review-assess
+    assess_parser = subparsers.add_parser("review-assess", help="Assess findings against deferred registry")
+    assess_parser.add_argument("--review-path", required=True, help="Path to review.md")
+    assess_parser.add_argument("--registry-path", help="Path to deferred-registry.json (default: sibling of review.md)")
+
+    # review-deferred
+    deferred_parser = subparsers.add_parser("review-deferred", help="Manage deferred finding registry")
+    deferred_parser.add_argument("--registry-path", required=True, help="Path to deferred-registry.json")
+    deferred_parser.add_argument("--action", required=True,
+                                  choices=["add-deferred", "add-fix", "read", "auto-populate"],
+                                  help="Action to perform")
+    deferred_parser.add_argument("--entry", help="JSON entry (for add-deferred, add-fix)")
+    deferred_parser.add_argument("--review-path", help="Path to review.md (for auto-populate)")
+    deferred_parser.add_argument("--cycle", type=int, help="Cycle number (for auto-populate)")
+
     # review-loop-state
     loop_state_parser = subparsers.add_parser("review-loop-state", help="Manage loop state file")
     loop_state_parser.add_argument("--review-dir", required=True, help="Code reviews directory path")
@@ -144,6 +159,8 @@ def main() -> int:
         "verify-diagrams": "scripts.verify_diagrams",
         "context-index": "scripts.context_index",
         "review-forge": "scripts.code_review",
+        "review-assess": "scripts.code_review",
+        "review-deferred": "scripts.code_review",
         "review-stack": "scripts.code_review",
         "review-loop-state": "scripts.code_review",
         "review-preflight": "scripts.code_review",
@@ -165,6 +182,10 @@ def main() -> int:
             return mod.run_cron(args)
         elif args.command == "auto-update":
             return mod.run_auto_update(args)
+        elif args.command == "review-assess":
+            return mod.run_assess(args)
+        elif args.command == "review-deferred":
+            return mod.run_deferred(args)
         elif args.command == "review-forge":
             return mod.run_forge(args)
         elif args.command == "review-stack":
