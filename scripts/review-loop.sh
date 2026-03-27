@@ -101,11 +101,26 @@ state_set() {
 # ─── Discover Branches ────────────────────────────────────────────────────────
 
 discover_branches() {
-  # --reset: clear prior state so loop starts fresh
+  # --reset: clear prior state AND old review files so loop starts truly fresh
   if [[ "$RESET" == "true" ]]; then
     if [[ -f "$STATE_FILE" ]]; then
       info "Resetting: removing existing $STATE_FILE"
       rm -f "$STATE_FILE"
+    fi
+    # Archive old review directories so file-age checks don't see stale files
+    # Reviews are renamed to <slug>.pre-<timestamp> to preserve history
+    local reset_ts
+    reset_ts="$(date +%Y%m%d-%H%M%S)"
+    local old_reviews
+    old_reviews="$(find "$REVIEWS_DIR" -maxdepth 1 -type d \( -name "feat-*" -o -name "fix-*" -o -name "hotfix-*" \) 2>/dev/null)"
+    if [[ -n "$old_reviews" ]]; then
+      info "Resetting: archiving old review directories (suffix: .pre-${reset_ts})"
+      echo "$old_reviews" | while read -r d; do mv "$d" "${d}.pre-${reset_ts}"; done
+    fi
+    # Also archive old loop-state and logs
+    if [[ -d "$LOG_DIR" ]]; then
+      mv "$LOG_DIR" "${LOG_DIR}.pre-${reset_ts}"
+      mkdir -p "$LOG_DIR"
     fi
   fi
 
@@ -613,14 +628,18 @@ main() {
           local recent_diff
           recent_diff="$(git log --oneline -1 --since='5 minutes ago' 2>/dev/null | wc -l)"
           if [[ "$recent_diff" -eq 0 ]]; then
-            # No changes — check if this is because all findings are already resolved
+            # No changes — but review.md may still have stale qualifying findings.
+            # Run VERIFY anyway to let the update review reclassify them as resolved.
+            info "Fix produced no changes — running verify to update review classifications"
+            phase_verify "$branch" || warn "Verify session exited with error — checking results anyway"
+
             local no_fix_check
             no_fix_check="$(phase_check "$branch" "$cycle")"
             if [[ "$no_fix_check" == "converged" ]]; then
-              success "No fixes needed — all qualifying findings already resolved"
+              success "No fixes needed — all qualifying findings confirmed resolved after verify"
               final_status="converged"
             else
-              warn "Fix produced no changes but findings remain — stalled"
+              warn "Fix produced no changes and findings remain after verify — stalled"
               final_status="stalled"
             fi
             break
