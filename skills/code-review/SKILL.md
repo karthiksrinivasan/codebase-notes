@@ -27,6 +27,7 @@ Multi-persona review producing two artifacts per review:
 | `view` | `"identifier"` (required) | Read and display an existing review |
 | `update` | `"identifier"` (required), `--focus AREA` | Re-run or amend review with updated diff or focused area |
 | `fix` | `"identifier"` (required), `--scope SCOPE`, `--include-deferred` | Fix findings and update review docs |
+| `loop` | `"branch1" ...` or `--stack BASE`, `--project`, `--max-cycles`, `--auto-approve`, `--dry-run`, `--resume` | Automated review→fix→update cycle across branches |
 
 **Identifier formats:** PR number (`#123`, `!456` for GitLab), branch name (`feat/composition-embeddings`), bare number (`123` = PR/MR number).
 
@@ -43,6 +44,11 @@ Multi-persona review producing two artifacts per review:
 /codebase-notes:code-review fix "#42" --scope critical       # critical only
 /codebase-notes:code-review fix "#42" --scope all            # everything including nits
 /codebase-notes:code-review fix "#42" --include-deferred     # re-include deferred findings
+/codebase-notes:code-review loop "feat/auth" "feat/api"                     # review two branches
+/codebase-notes:code-review loop --stack "feat/vertical-slice"              # discover and review stack
+/codebase-notes:code-review loop --stack "feat/vertical-slice" --project "projects/comp-embeddings" --auto-approve
+/codebase-notes:code-review loop --resume                                   # resume interrupted loop
+/codebase-notes:code-review loop --stack "feat/vertical-slice" --dry-run    # preview without executing
 ```
 
 **Note:** Always quote identifiers starting with `#` or `!` — shell special characters.
@@ -89,12 +95,7 @@ run-script repo-id
 
 Reviews live at: `~/.claude/repo_notes/<repo_id>/code-reviews/`. Create `code-reviews/` dir if missing.
 
-**Forge detection:** Check `git remote get-url origin`:
-- Contains `gitlab` or `.gitlab-ci.yml` exists → use `glab`
-- Contains `github` → use `gh`
-- Verify: `command -v glab` or `command -v gh`
-
-Store as `FORGE_CLI`. If neither available, branch-diff-only mode. If bare number passed without forge CLI, error: "Cannot resolve numeric identifier without gh or glab CLI."
+**Forge detection:** `run-script review-forge` → returns JSON with `forge`, `cli`, `cli_available`, `cli_authenticated`, `cli_usable`. Use `cli_usable` to determine if PR/MR metadata is available. If `cli_usable` is false, fall back to branch-diff-only mode. If bare number passed without usable forge CLI, error: "Cannot resolve numeric identifier without gh or glab CLI."
 
 ---
 
@@ -491,6 +492,132 @@ Each executor: validates targets still exist, reads current code, applies fixes,
    - Show **Fix Log** if any fixes have been applied
    - Offer to expand individual persona sections for detail
 5. If review doesn't exist, suggest `/codebase-notes:code-review new`
+
+---
+
+## Subcommand: `loop`
+
+Automated review→fix→update cycle. Runs until critical/suggestion findings converge or max cycles reached.
+
+### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `"branch1" "branch2" ...` | Yes (unless `--stack`) | Branches to review in order |
+| `--stack BASE` | No | Auto-discover stacked branches via `run-script review-stack --base <BASE>` |
+| `--project NAME` | No | Project notes for domain context (routed to DE + SA personas only) |
+| `--max-cycles N` | No | Max fix cycles per branch (default: 3) |
+| `--auto-approve` | No | Skip fix-plan confirmation, auto-defer conflicts, auto-skip failed clusters |
+| `--dry-run` | No | Preview branch list + existing findings without executing |
+| `--resume` | No | Resume from `loop-state.json` |
+
+**Note:** Loop flags are passed via `--loop-args` when invoked programmatically.
+
+### Flow
+
+1. **Resolve branches:**
+   - `--resume`: `run-script review-loop-state --review-dir <path> --action read`, skip branches with status `converged`, `stalled`, `hard-cap`, `clean`
+   - `--stack`: `run-script review-stack --base <BASE>`, get ordered list. If multiple children at any level, present disambiguation.
+   - Explicit list: use as provided
+   - `--dry-run`: show branch table (see Dry-Run Output below), exit
+
+2. **Initialize state:** `run-script review-loop-state --review-dir <path> --action write --branches '<json>' --args '<json>'`
+
+3. **For each branch:**
+
+   **Progress:** Announce `### Branch N/M: <name>`
+
+   a. **Load context:**
+      - If `--project`: read project notes, route to DE + SA only
+      - If stacked and parent completed: re-read parent's POST-FIX review.md for cross-branch context (summary + unresolved findings)
+
+   b. **Review:** Check if `code-reviews/<slug>/` exists.
+      - Exists → run `update` subcommand flow
+      - New → run `new` subcommand flow (with `--base <parent>` if stacked)
+      - **Per-persona progress:** Log each persona as it runs: `Review: running <Persona>... (N findings)`
+
+   c. **Check findings:** `run-script review-status --review-path <path> --action list-findings`
+      - Filter: severity in (critical, suggestion), status in (new, missed, regressed)
+      - Zero → log "Branch clean", update state, skip to next
+
+   d. **Fix cycle** (up to `--max-cycles`):
+      Track `min_findings_seen` across cycles.
+
+      - Run `fix` flow (pass `--auto-approve` if set)
+      - **Fix-failed check:** `git diff --stat` — if no changes, log "nothing to fix", exit cycle
+      - Run `update` flow
+      - Count findings where status in (new, missed, regressed) AND severity in (critical, suggestion)
+      - **Progress:** Log `Cycle N result: X new, Y resolved`
+      - **Converged:** count = 0 → exit cycle
+      - **Stalled:** count >= `min_findings_seen` → log "stalled at N findings", exit cycle
+      - **Hard cap:** cycle = `--max-cycles` → log remaining, exit cycle
+      - **Continue:** update `min_findings_seen = min(min_findings_seen, count)`
+      - **Per-cluster progress:** Log `Cluster K/M: pass` or `Cluster K/M: fail`
+      - Checkpoint: `run-script review-loop-state --action update-branch --branch <name> --status in-progress --cycles <N>`
+
+   e. **Finalize branch:**
+      - Update state: `run-script review-loop-state --action update-branch --branch <name> --status <converged|stalled|hard-cap|fix-failed|clean>`
+      - Log remaining suggestions/nits
+
+   f. **Rebase next branch** (stacked mode only):
+      ```bash
+      git fetch origin <current_branch>
+      git rebase <current_branch> <next_branch>
+      ```
+      If conflict: `git rebase --abort`, log "Rebase of <next_branch> onto <current_branch> failed with conflicts. Skipping rebase — review will analyze pre-rebase code.", continue anyway.
+      **Progress:** Announce `Rebasing next branch...`
+
+   g. **Checkpoint after branch 1** (unless `--auto-approve`):
+      "Branch 1/N complete: <name> (<cycles> cycles, <status>). Continue with remaining branches? (yes/stop)"
+
+4. **Final summary:** Table with Branch | Cycles | Status | Critical | Suggestions | Nits columns, plus `Total: N branches, M converged, K stalled`.
+
+### Exit Conditions
+
+| Condition | Detection | Action |
+|-----------|-----------|--------|
+| **Converged** | Zero qualifying findings (status in new/missed/regressed, severity critical/suggestion) | Move to next branch |
+| **Stalled** | Count >= minimum seen across all prior cycles (prevents oscillation) | Log "stalled at N findings", move on |
+| **Hard cap** | Cycle count = `--max-cycles` | Log remaining, move on |
+| **Fix failed** | `git diff --stat` shows no changes after fix | Log "nothing to fix", move on |
+| **Clean** | Initial review has zero critical/suggestion findings | Skip fix cycles entirely |
+
+### Dry-Run Output
+
+When `--dry-run` is passed, resolve branches and print without executing:
+
+```
+## Dry Run: N branches
+
+| Branch | Review Exists | Critical | Suggestions | Est. Cycles |
+|--------|--------------|----------|-------------|-------------|
+| feat/vertical-slice | yes (v2) | 1 | 3 | 1-2 |
+| feat/eval-harness | no | — | — | 1-3 |
+
+Estimated total cycles: 4-11
+```
+
+### Progress Protocol
+
+Emit structured progress at each milestone. Format:
+
+```
+## Loop: N branches to review
+### Branch 1/N: feat/vertical-slice
+  Review: running Systems Architect... (3 findings)
+  Review: running Domain Expert... (1 finding)
+  Review: 7 findings total (2 critical, 4 suggestions, 1 nit)
+  Fix cycle 1/3:
+    Planning... 2 clusters, 0 conflicts
+    Cluster 1/2: pass | Cluster 2/2: pass
+    Committed: abc1234 | Updating review...
+    Cycle 1 result: 1 new finding, 5 resolved
+  Fix cycle 2/3:
+    Cycle 2 result: 0 new findings → CONVERGED
+  Remaining: 1 nit (not fixed)
+  Rebasing next branch...
+### Branch 2/N: ...
+```
 
 ---
 
