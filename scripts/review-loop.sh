@@ -329,6 +329,26 @@ ${project_context}${cross_context}" \
     "$log_file"
 }
 
+# ─── Phase: CONVERGENCE GATE (fresh review, not update) ──────────────────────
+
+phase_gate_review() {
+  local branch="$1"
+  local slug
+  slug="$(echo "$branch" | sed 's|/|-|g')"
+  local review_dir="${REVIEWS_DIR}/${slug}"
+
+  # Archive the existing review so code-review runs as "new" (fresh personas)
+  if [[ -d "$review_dir" ]]; then
+    local gate_ts
+    gate_ts="$(date +%Y%m%d-%H%M%S)"
+    mv "$review_dir" "${review_dir}.pre-gate-${gate_ts}"
+    info "Archived existing review for fresh gate review"
+  fi
+
+  # Run a fresh review (phase_review will see no directory → mode=new)
+  phase_review "$branch"
+}
+
 # ─── Phase: FIX ───────────────────────────────────────────────────────────────
 
 phase_fix() {
@@ -638,7 +658,7 @@ main() {
             if [[ "$no_fix_check" == "converged" ]]; then
               # Convergence gate: fresh review to confirm
               info "Phase 5: CONVERGENCE GATE — fresh review to confirm clean"
-              phase_review "$branch" || warn "Gate review exited with error — checking results anyway"
+              phase_gate_review "$branch" || warn "Gate review exited with error — checking results anyway"
               local gate_no_fix
               gate_no_fix="$(phase_check "$branch" "$cycle")"
               if [[ "$gate_no_fix" == "converged" ]]; then
@@ -670,7 +690,7 @@ main() {
           converged)
             # Convergence gate: run a fresh review to confirm no real issues remain
             info "Phase 5: CONVERGENCE GATE — fresh review to confirm clean"
-            phase_review "$branch" || warn "Gate review exited with error — checking results anyway"
+            phase_gate_review "$branch" || warn "Gate review exited with error — checking results anyway"
 
             local gate_result
             gate_result="$(phase_check "$branch" "$cycle")"
