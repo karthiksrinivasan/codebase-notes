@@ -636,8 +636,18 @@ main() {
             local no_fix_check
             no_fix_check="$(phase_check "$branch" "$cycle")"
             if [[ "$no_fix_check" == "converged" ]]; then
-              success "No fixes needed — all qualifying findings confirmed resolved after verify"
-              final_status="converged"
+              # Convergence gate: fresh review to confirm
+              info "Phase 5: CONVERGENCE GATE — fresh review to confirm clean"
+              phase_review "$branch" || warn "Gate review exited with error — checking results anyway"
+              local gate_no_fix
+              gate_no_fix="$(phase_check "$branch" "$cycle")"
+              if [[ "$gate_no_fix" == "converged" ]]; then
+                success "No fixes needed — confirmed clean by fresh review"
+                final_status="converged"
+              else
+                warn "Gate review found new issues but fix produced no changes — stalled"
+                final_status="stalled"
+              fi
             else
               warn "Fix produced no changes and findings remain after verify — stalled"
               final_status="stalled"
@@ -658,9 +668,21 @@ main() {
 
         case "$check_result" in
           converged)
-            success "Branch $branch CONVERGED after $cycle cycle(s)"
-            final_status="converged"
-            break ;;
+            # Convergence gate: run a fresh review to confirm no real issues remain
+            info "Phase 5: CONVERGENCE GATE — fresh review to confirm clean"
+            phase_review "$branch" || warn "Gate review exited with error — checking results anyway"
+
+            local gate_result
+            gate_result="$(phase_check "$branch" "$cycle")"
+            if [[ "$gate_result" == "converged" ]]; then
+              success "Branch $branch CONVERGED after $cycle cycle(s) — confirmed by fresh review"
+              final_status="converged"
+            else
+              info "Convergence gate found new issues — continuing to cycle $((cycle+1))"
+              final_status=""  # don't break, let loop continue
+            fi
+            [[ -n "$final_status" ]] && break
+            ;;
           hard-cap)
             warn "Branch $branch hit hard cap at $MAX_CYCLES cycles"
             final_status="hard-cap"
