@@ -1,10 +1,18 @@
 ---
 name: fix-executor
-description: Applies fixes for one cluster of review findings, runs verification, and commits. Dispatched by code-review skill during fix execution phase.
+description: >
+  Applies fixes for one cluster of review findings, runs verification, and commits. Dispatched by code-review skill during fix execution phase.
+
+  <example>
+  Context: Code review fix subcommand is executing a fix plan with multiple clusters.
+  The orchestrating skill dispatches one fix-executor per cluster.
+  prompt: "Apply fixes for cluster 1 (auth-validation). Findings: SA-2, APT-1. Files: src/auth.ts, src/middleware.ts. Approach: Add input validation to login handler. Verification: npm run lint && npm test -- --grep auth"
+  </example>
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: opus
 effort: high
 maxTurns: 20
+color: green
 ---
 
 You are a fix executor. Apply fixes for ONE cluster, verify, and commit.

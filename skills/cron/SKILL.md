@@ -1,10 +1,11 @@
 ---
 name: cron
-description: Set up automatic cron-based updates for codebase notes. Installs a launchd plist (macOS) or crontab entry (Linux) to periodically check and refresh stale notes.
+version: 2.23.0
+description: Set up automatic cron-based updates for codebase notes. Installs a launchd plist (macOS) or crontab entry (Linux) to periodically check and refresh stale notes. Use when the user says "auto-update notes", "schedule note updates", "keep notes fresh automatically", "install cron for notes", or wants periodic automatic staleness checks.
 allowed-tools: ["Read", "Bash"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/cron/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 # Cron Auto-Updates
 
@@ -30,7 +31,7 @@ You are setting up or removing automatic cron-based updates for codebase notes.
 ## Install
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts cron --install --interval 6h
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts cron --install --interval 6h
 ```
 
 Adjust `--interval` based on user input (default: 6h).
@@ -52,7 +53,7 @@ When triggered, the auto-update process:
 ## Uninstall
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts cron --uninstall
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts cron --uninstall
 ```
 
 ## Monitoring
@@ -66,11 +67,11 @@ cat ~/.claude/repo_notes/cron.log
 Run a manual update to test:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts auto-update --all-repos
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts auto-update --all-repos
 ```
 
 Or for a single repo:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts auto-update
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts auto-update
 ```

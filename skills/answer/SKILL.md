@@ -1,10 +1,11 @@
 ---
 name: answer
-description: Answer questions about the codebase using pre-built notes as primary context. Reads relevant notes first, falls back to code exploration only when needed, and updates notes with new findings.
+version: 2.23.0
+description: Answer questions about the codebase using pre-built notes as primary context. Reads relevant notes first, falls back to code exploration only when needed, and updates notes with new findings. Use when the user asks "how does X work", "what is the Y system", "explain Z", or asks any question about the codebase architecture or behavior.
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/answer/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 # Answer from Notes
 
@@ -27,7 +28,7 @@ You are answering a question about the codebase using notes as the primary conte
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
@@ -78,7 +79,7 @@ After learning something new from code exploration that isn't in the notes:
 Then rebuild navigation:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav
 ```
 
 This keeps notes as a living cache of codebase understanding.

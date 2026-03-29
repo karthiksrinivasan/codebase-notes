@@ -58,7 +58,7 @@ Every note must have a navigation bar at the top:
 - Navigation bars are rebuilt automatically:
 
 ```bash
-cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav
 ```
 
 Run this after adding, removing, or renaming any note.
@@ -338,7 +338,7 @@ Notes should include Excalidraw diagrams where visual representation adds clarit
 Render diagrams to PNG:
 
 ```bash
-cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 After rendering, view the PNG to verify correctness. Fix and re-render as needed.
@@ -370,7 +370,7 @@ last_updated: 2026-03-18
 Run the staleness checker to find notes that may need updating:
 
 ```bash
-cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts stale
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale
 ```
 
 This compares each note's tracked commit against the current HEAD for those paths and reports which notes have fallen behind.
@@ -394,19 +394,19 @@ When updating a note after source code changes:
 - **Rebuild navigation** after adding, removing, or renaming notes:
 
 ```bash
-cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav
 ```
 
 - **Re-render diagrams** after modifying any `.excalidraw` file:
 
 ```bash
-cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 - **Check freshness** periodically to catch notes that have drifted from the source:
 
 ```bash
-cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts stale
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale
 ```
 
 ## Research Notes

@@ -1,10 +1,11 @@
 ---
 name: diagram
-description: Add or update Excalidraw architecture diagrams for codebase notes. Creates and renders diagrams to PNG with proper styling and text descriptions.
+version: 2.23.0
+description: Add or update Excalidraw architecture diagrams for codebase notes. Creates and renders diagrams to PNG with proper styling and text descriptions. Use when the user says "add a diagram", "create architecture diagram", "visualize the data flow", "draw the system", or wants to add or update diagrams in their notes.
 allowed-tools: ["Read", "Write", "Bash", "Glob", "Agent"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/diagram/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 # Add/Update Diagrams
 
@@ -29,7 +30,7 @@ You are adding or updating Excalidraw diagrams for codebase notes.
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
@@ -71,7 +72,7 @@ Name the file: `<note-name>-<type>.excalidraw` (e.g., `01-api-architecture.excal
 ## Step 4: Render
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 ## Step 5: View and Fix

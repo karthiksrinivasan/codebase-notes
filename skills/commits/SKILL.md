@@ -1,10 +1,11 @@
 ---
 name: commits
-description: Explore recent git commit history and generate structured notes grouped by author and code area. Useful for understanding what changed recently, onboarding, or release notes.
+version: 2.23.0
+description: Explore recent git commit history and generate structured notes grouped by author and code area. Useful for understanding what changed recently, onboarding, or release notes. Use when the user says "what changed recently", "who worked on what", "show recent commits", "generate commit notes", or wants a summary of recent development activity.
 allowed-tools: ["Read", "Write", "Bash", "Glob"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/commits/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 # Explore Commit History
 
@@ -31,7 +32,7 @@ You are generating structured notes from git commit history.
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 ## Step 1: Generate Commit Notes
@@ -39,7 +40,7 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts &&
 Run the commits command with the provided arguments:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts commits --author "AUTHOR" --since "4w" --path ""
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts commits --author "AUTHOR" --since "4w" --path ""
 ```
 
 Adjust `--since` and `--path` based on user input.
@@ -78,7 +79,7 @@ For the overall commit summary, create a high-level diagram showing which parts 
 Build diagrams section-by-section. After creating all `.excalidraw` files:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 View each rendered PNG with the Read tool to verify quality. Fix and re-render until clean. Embed in the relevant commit note with `![description](./filename.png)` and always include a text description below that stands alone without the image.
@@ -96,7 +97,7 @@ If the user wants a summary, write a high-level narrative covering:
 **MANDATORY** — run the diagram verifier after creating commit notes:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts verify-diagrams
 ```
 
 If any HIGH or MEDIUM issues are reported, go back and create the missing diagrams. Do not skip this step.
@@ -106,7 +107,7 @@ If any HIGH or MEDIUM issues are reported, go back and create the missing diagra
 Check if heavily-modified code areas have stale notes:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale --no-cache
 ```
 
 Flag notes that cover the same areas as recent commits.

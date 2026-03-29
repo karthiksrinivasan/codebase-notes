@@ -1,10 +1,11 @@
 ---
 name: migrate
-description: Migrate v1 codebase notes (stored in-repo at docs/notes/) to the v2 centralized location at ~/.claude/repo_notes/. Copies files, preserves structure, and reports broken links.
+version: 2.23.0
+description: Migrate v1 codebase notes (stored in-repo at docs/notes/) to the v2 centralized location at ~/.claude/repo_notes/. Copies files, preserves structure, and reports broken links. Use when the user says "migrate my notes", "move old notes", "convert v1 notes", "upgrade notes format", or has in-repo notes that need moving to centralized storage.
 allowed-tools: ["Read", "Bash", "Glob"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/migrate/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 # Migrate v1 Notes to v2
 
@@ -25,7 +26,7 @@ You are migrating existing codebase notes from the old in-repo location to the n
 ## Step 0: Resolve Repo Identity
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 ## Step 1: Detect v1 Notes
@@ -42,7 +43,7 @@ If no v1 notes are found, tell the user and suggest `/codebase-notes:init` inste
 ## Step 2: Run Migration
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from <path>
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts migrate --from <path>
 ```
 
 This will:
@@ -54,14 +55,14 @@ This will:
 ## Step 3: Scaffold Missing Structure
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts scaffold
 ```
 
 ## Step 4: Rebuild Navigation
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 ## Step 5: Report

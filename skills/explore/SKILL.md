@@ -1,10 +1,11 @@
 ---
 name: explore
-description: Explore a codebase topic in depth and write structured notes with architecture diagrams. Dispatches Explore agents, writes notes following the capture matrix, and presents options for deeper exploration.
+version: 2.23.0
+description: Explore a codebase topic in depth and write structured notes with architecture diagrams. Dispatches Explore agents, writes notes following the capture matrix, and presents options for deeper exploration. Use when the user says "explore X", "document the auth system", "write notes about Y", "deep dive into Z", or wants structured notes on a codebase area.
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/explore/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 # Explore Topic
 
@@ -31,7 +32,7 @@ You are exploring a topic in the codebase and writing structured notes.
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
@@ -43,7 +44,7 @@ Read `00-overview.md` to understand current coverage. Check if this topic alread
 If notes exist for this topic, read them first. Check staleness:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale
 ```
 
 If the topic's notes are FRESH, tell the user and ask what specifically they want to go deeper on.
@@ -97,7 +98,7 @@ Every note MUST include at least one diagram. Use the diagram type table from sh
 For notes covering multiple concepts, create multiple diagrams (one per concept). Build diagrams section-by-section to avoid token limits. After writing all notes, render and verify:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 View each rendered PNG with the Read tool to verify quality. Fix and re-render until clean. Every diagram MUST have a text description below it that stands alone without the image.
@@ -107,23 +108,23 @@ View each rendered PNG with the Read tool to verify quality. Fix and re-render u
 After writing notes:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 Update `00-overview.md` Knowledge Map.
 
-## Step 4.5: Verify Diagram Coverage
+## Step 5: Verify Diagram Coverage
 
 **MANDATORY** — run the diagram verifier after writing notes:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts verify-diagrams
 ```
 
 If any HIGH or MEDIUM issues are reported, go back and create the missing diagrams before presenting options to the user. Do not skip this step.
 
-## Step 5: Present Options
+## Step 6: Present Options
 
 Always present navigation options:
 

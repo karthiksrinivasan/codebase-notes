@@ -1,10 +1,11 @@
 ---
 name: update
-description: Update stale codebase notes by detecting code changes since last update, re-exploring affected areas, and refreshing note content in-place.
+version: 2.23.0
+description: Update stale codebase notes by detecting code changes since last update, re-exploring affected areas, and refreshing note content in-place. Use when the user says "refresh notes", "update stale notes", "notes are outdated", "sync notes with code", or wants to bring notes up to date with recent code changes.
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/update/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 # Update Stale Notes
 
@@ -29,7 +30,7 @@ You are updating codebase notes that have become stale due to code changes.
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
@@ -37,7 +38,7 @@ Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
 ## Step 1: Check Staleness
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale --no-cache
 ```
 
 This shows which notes are FRESH, STALE, or NO_TRACKING, along with the specific files that changed.
@@ -67,20 +68,20 @@ For each note being updated:
 ## Step 4: Rebuild Navigation and Render
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
-## Step 4.5: Verify Diagram Coverage
+## Step 5: Verify Diagram Coverage
 
 **MANDATORY** — run the diagram verifier after updating notes:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts verify-diagrams
 ```
 
 If any HIGH or MEDIUM issues are reported for the updated notes, go back and create the missing diagrams before reporting to the user.
 
-## Step 5: Report
+## Step 6: Report
 
 Show the user what was updated and present options for further exploration.

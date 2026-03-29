@@ -1,10 +1,11 @@
 ---
 name: check
-description: Show the knowledge map with staleness status for all codebase notes. Reports which notes are fresh, stale, or untracked, with actionable suggestions.
+version: 2.23.0
+description: Show the knowledge map with staleness status for all codebase notes. Reports which notes are fresh, stale, or untracked, with actionable suggestions. Use when the user says "are my notes up to date", "check notes status", "what needs updating", "show note staleness", or wants to see the knowledge map.
 allowed-tools: ["Read", "Bash", "Glob"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/check/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 # Check Notes Status
 
@@ -31,7 +32,7 @@ You are checking the status and freshness of codebase notes.
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
@@ -41,7 +42,7 @@ Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
 Run scaffold to ensure `index.md` and all subdirectories exist (idempotent — safe for already-initialized repos):
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts scaffold
 ```
 
 ## Step 1: Read Overview
@@ -53,13 +54,13 @@ Read ~/.claude/repo_notes/<repo_id>/notes/00-overview.md
 ## Step 2: Run Staleness Check
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale --no-cache
 ```
 
 If `--all-repos` was specified:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale --all-repos --no-cache
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale --all-repos --no-cache
 ```
 
 ## Step 3: Present Knowledge Map

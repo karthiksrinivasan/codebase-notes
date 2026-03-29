@@ -1,10 +1,17 @@
 ---
 name: fix-planner
-description: Analyzes review findings and creates a structured fix plan with clusters, impact analysis, ordering, and approach. Dispatched by code-review skill during fix subcommand.
+description: >
+  Analyzes review findings and creates a structured fix plan with clusters, impact analysis, ordering, and approach. Dispatched by code-review skill during fix subcommand.
+
+  <example>
+  Context: Code review fix subcommand needs a plan before executing fixes.
+  prompt: "Analyze these review findings and create a fix plan. Findings JSON: [{id: 'SA-1', severity: 'critical', file: 'src/api.ts:42', description: '...'}]. Scope: critical+suggestion. Diff: <diff content>. Template: <fix-plan template>"
+  </example>
 tools: Read, Grep, Glob
 model: opus
 effort: high
 maxTurns: 15
+color: yellow
 ---
 
 You are a fix planner. Given review findings, create a structured plan for fixing them cohesively.

@@ -1,6 +1,7 @@
 ---
 name: code-review
-description: Review PRs and feature branches with multi-persona analysis. Generates onboarding context and structured reviews from five perspectives: Systems Architect, Domain Expert, Standards Compliance, Adversarial Path Tracer, and Build & Runtime Verifier.
+version: 2.23.0
+description: Review PRs and feature branches with multi-persona analysis. Generates onboarding context and structured reviews from five perspectives: Systems Architect, Domain Expert, Standards Compliance, Adversarial Path Tracer, and Build & Runtime Verifier. Use when the user says "review this PR", "code review #123", "check my branch", "review the latest changes", or wants a structured multi-persona review of code changes.
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "WebFetch"]
 ---
 
@@ -10,7 +11,7 @@ allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "WebFe
 ```bash
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts <command> [args]
 ```
-Abbreviated as `run-script <command> [args]` below. Always set `REPO_ROOT` first.
+In this document, `run-script <command> [args]` is shorthand for the full command above — always use the full form when executing. Always set `REPO_ROOT` first.
 
 # Code Review
 

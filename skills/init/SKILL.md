@@ -1,10 +1,11 @@
 ---
 name: init
-description: Initialize codebase notes for the current repository. Bootstraps scripts, resolves repo identity, scaffolds the notes directory, and writes the initial overview with architecture diagrams.
+version: 2.23.0
+description: Initialize codebase notes for the current repository. Bootstraps scripts, resolves repo identity, scaffolds the notes directory, and writes the initial overview with architecture diagrams. Use when the user says "init notes", "set up codebase notes", "start documenting this repo", "initialize notes", or wants to begin note-taking for a new codebase.
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/init/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 ## Core Philosophy
 
@@ -38,13 +39,13 @@ You are initializing codebase notes for the current repository. Follow these ste
 1. **Bootstrap scripts** — ensure the virtual environment exists:
 
 ```bash
-cd <plugin_root> && test -d .venv || uv sync
+cd ${CLAUDE_PLUGIN_ROOT} && test -d .venv || uv sync
 ```
 
 2. **Resolve repo identity**:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 Save this repo ID — it determines where notes are stored: `~/.claude/repo_notes/<repo_id>/`
@@ -52,7 +53,7 @@ Save this repo ID — it determines where notes are stored: `~/.claude/repo_note
 3. **Check for existing notes**:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale 2>/dev/null
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale 2>/dev/null
 ```
 
 If notes already exist, tell the user and show the staleness report. Ask if they want to:
@@ -65,13 +66,13 @@ If `--force` was NOT passed and notes exist, do NOT reinitialize. Instead, prese
 4. **Check for v1 notes** in the repo (`docs/notes/`, `notes/`, `docs/knowledge/`). If found, offer migration:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from <path>
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts migrate --from <path>
 ```
 
 ## Step 1: Scaffold
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts scaffold
 ```
 
 ## Step 2: Explore the Repository
@@ -100,11 +101,11 @@ Show the Knowledge Map as numbered options. Let the user choose what to explore 
 After creating diagrams, render them:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 After writing notes, rebuild navigation:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav
 ```

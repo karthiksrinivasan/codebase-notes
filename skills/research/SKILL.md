@@ -1,10 +1,11 @@
 ---
 name: research
-description: Research external topics and create structured notes from papers, articles, blog posts, and web resources. Organized by topic in a dedicated research/ directory with relevance tagging.
+version: 2.23.0
+description: Research external topics and create structured notes from papers, articles, blog posts, and web resources. Organized by topic in a dedicated research/ directory with relevance tagging. Use when the user says "research X topic", "read this paper", "summarize this article", "look into Y", or wants to create research notes from external materials.
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "WebFetch", "WebSearch"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/research/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 # Research Notes
 
@@ -32,7 +33,7 @@ You are creating or updating research notes — a curated knowledge base of exte
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 Research notes live at: `~/.claude/repo_notes/<repo_id>/research/`
@@ -133,7 +134,7 @@ For individual paper/article notes, diagram the paper's technical approach or ar
 Build diagrams section-by-section. After creating all `.excalidraw` files:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 View each rendered PNG with the Read tool to verify quality. Fix and re-render until clean. Embed in the note with `![description](./filename.png)` and always include a text description below that stands alone without the image.
@@ -149,7 +150,7 @@ Update `research/index.md` with the new topic and paper counts.
 ## Step 6: Rebuild Navigation
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav
 ```
 
 ## Step 7: Verify Diagram Coverage
@@ -157,7 +158,7 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts &&
 **MANDATORY** — run the diagram verifier after writing research notes:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts verify-diagrams
 ```
 
 If any HIGH or MEDIUM issues are reported, go back and create the missing diagrams. Do not skip this step.

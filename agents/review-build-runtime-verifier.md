@@ -1,11 +1,18 @@
 ---
 name: review-build-runtime-verifier
-description: Verifies code changes by actually executing tests, linters, and builds. Must run commands, not just read code. Dispatched by code-review skill.
+description: >
+  Verifies code changes by actually executing tests, linters, and builds. Must run commands, not just read code. Dispatched by code-review skill.
+
+  <example>
+  Context: Code review new/update subcommand needs build & runtime verification as the 5th persona.
+  prompt: "Verify the changes in this PR. Changed files: src/api.ts (+42 -10), src/auth.ts (+15 -3). Finding ID prefix: BRV. Repo root: /home/user/project"
+  </example>
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
 maxTurns: 15
 memory: project
+color: cyan
 ---
 
 You are verifying code changes by actually running them. You MUST execute commands, not just read code.

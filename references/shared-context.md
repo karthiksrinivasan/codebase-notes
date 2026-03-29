@@ -6,9 +6,7 @@ This document contains shared patterns, rules, and protocols used by all codebas
 
 ## Resolving Plugin Root
 
-Each skill's SKILL.md is located at `<plugin_root>/skills/<name>/SKILL.md`.
-The plugin root is the directory containing `package.json`, `scripts/`, and `references/`.
-When this shared context says `<plugin_root>`, substitute the actual resolved path.
+All paths in this document use `${CLAUDE_PLUGIN_ROOT}`, the environment variable set by the plugin runtime pointing to the plugin's root directory (containing `package.json`, `scripts/`, and `references/`).
 
 ---
 
@@ -33,7 +31,7 @@ When this shared context says `<plugin_root>`, substitute the actual resolved pa
 All scripts are invoked with the same pattern. Set `REPO_ROOT` to the git root of the user's repo, then `cd` into the scripts directory and run via `uv`:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts <command> [args]
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts <command> [args]
 ```
 
 **Why `REPO_ROOT`?** The user may be in a subdirectory of their repo. `REPO_ROOT` ensures scripts always resolve the repo identity from the git root, not a subdirectory. The scripts also accept `REPO_CWD` (falls back to deriving the git root from it) and `os.getcwd()` as last resort.
@@ -42,20 +40,20 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts &&
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `repo-id` | Print the repo ID for the current git repo | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id` |
-| `scaffold` | Create notes directory structure for current repo | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts scaffold` |
-| `stale` | Check all notes for staleness | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale` |
-| `stale --all-repos` | Check staleness across all repos | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale --all-repos` |
-| `stale --no-cache` | Force fresh staleness check (skip cache) | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache` |
-| `nav` | Rebuild all navigation links in notes | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav` |
-| `render` | Render all .excalidraw files to .png | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render` |
-| `commits` | Generate commit history notes | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts commits --author "Name"` |
-| `auto-update` | Run staleness check + Claude update | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts auto-update` |
-| `auto-update --all-repos` | Auto-update all repos | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts auto-update --all-repos` |
-| `cron --install` | Install cron auto-update schedule | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts cron --install` |
-| `cron --uninstall` | Remove cron auto-update schedule | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts cron --uninstall` |
-| `migrate` | Migrate v1 notes to v2 centralized location | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from docs/notes` |
-| `verify-diagrams` | Check notes for missing diagram coverage | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams` |
+| `repo-id` | Print the repo ID for the current git repo | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id` |
+| `scaffold` | Create notes directory structure for current repo | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts scaffold` |
+| `stale` | Check all notes for staleness | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale` |
+| `stale --all-repos` | Check staleness across all repos | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale --all-repos` |
+| `stale --no-cache` | Force fresh staleness check (skip cache) | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale --no-cache` |
+| `nav` | Rebuild all navigation links in notes | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav` |
+| `render` | Render all .excalidraw files to .png | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render` |
+| `commits` | Generate commit history notes | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts commits --author "Name"` |
+| `auto-update` | Run staleness check + Claude update | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts auto-update` |
+| `auto-update --all-repos` | Auto-update all repos | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts auto-update --all-repos` |
+| `cron --install` | Install cron auto-update schedule | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts cron --install` |
+| `cron --uninstall` | Remove cron auto-update schedule | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts cron --uninstall` |
+| `migrate` | Migrate v1 notes to v2 centralized location | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts migrate --from docs/notes` |
+| `verify-diagrams` | Check notes for missing diagram coverage | `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts verify-diagrams` |
 
 ---
 
@@ -68,7 +66,7 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts &&
 Ensure the Python environment is ready:
 
 ```bash
-cd <plugin_root> && test -d .venv || uv sync
+cd ${CLAUDE_PLUGIN_ROOT} && test -d .venv || uv sync
 ```
 
 If `.venv` doesn't exist, `uv sync` will create it and install all dependencies (PyYAML, Pillow). This only needs to happen once, but always check.
@@ -78,7 +76,7 @@ If `.venv` doesn't exist, `uv sync` will create it and install all dependencies 
 Run the `repo-id` command to determine where notes are stored for this repo:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 This prints the repo ID (e.g., `anthropics--claude-code`). Notes for this repo live at:
@@ -100,7 +98,7 @@ After resolving the notes path, check if notes already exist:
 **If the notes directory has content (contains .md files):** Run the staleness checker to see what's fresh and what needs updating:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale
 ```
 
 This outputs a report showing FRESH, STALE, or NO_TRACKING for each note. Present the results to the user along with the Knowledge Map from `00-overview.md`. Ask what they want to do: explore more, update stale notes, add detail, etc.
@@ -108,7 +106,7 @@ This outputs a report showing FRESH, STALE, or NO_TRACKING for each note. Presen
 **If the notes directory is empty or doesn't exist:** Run scaffold to create the initial structure:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts scaffold
 ```
 
 This creates the notes directory with a skeleton `00-overview.md` and a `RULES.md` copied from the skill's template. Then proceed to Phase 1.
@@ -120,7 +118,7 @@ If no centralized notes exist, check whether this repo has v1 notes (stored insi
 **If v1 notes are found**, offer to migrate them:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from docs/notes
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts migrate --from docs/notes
 ```
 
 The migration copies all `.md`, `.excalidraw`, and `.png` files to the centralized location, preserving directory structure. It reports any broken links that pointed outside the notes directory. The original files are NOT deleted — the user can remove them manually.
@@ -187,7 +185,7 @@ This keeps notes as a living cache of codebase understanding. Every agent sessio
 
 ---
 
-## 10. Note Structure
+## 5. Note Structure
 
 ### Directory Layout
 
@@ -295,7 +293,7 @@ All links are **relative paths**.
 
 ---
 
-## 11. Diagrams
+## 6. Diagrams
 
 **Every note needs at least one Excalidraw diagram. Every major section or concept within a note should have its own diagram.** A note about a service with architecture, data flow, and integration sections should have three diagrams — not one. Diagrams are not decoration; they are the primary way readers understand structure and flow. Text explains the nuance; diagrams argue the shape.
 
@@ -318,7 +316,7 @@ Create a diagram for each of these within a note:
 3. Render all diagrams:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 4. View the PNG with the Read tool to verify it looks correct
@@ -354,7 +352,7 @@ Some markdown viewers (like md-serve with Next.js routing) can't serve images wh
 
 ---
 
-## 12. Parallelization Patterns
+## 7. Parallelization Patterns
 
 ### Multiple Topics
 
@@ -376,7 +374,7 @@ After all complete, render everything in one pass:
 ```
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render
 ```
 
 Sub-agents creating diagrams may lack bash permissions — always render centrally after they complete.
@@ -395,7 +393,7 @@ Run nav script to fix all navigation
 
 ---
 
-## 13. Knowledge Map
+## 8. Knowledge Map
 
 The Knowledge Map is a table in `00-overview.md` that tracks all topics and their exploration status.
 
@@ -426,7 +424,7 @@ After running the staleness checker, update the Knowledge Map to reflect current
 
 ---
 
-## 14. v1 to v2 Migration
+## 9. v1 to v2 Migration
 
 ### What Changed
 
@@ -444,7 +442,7 @@ After running the staleness checker, update the Knowledge Map to reflect current
 ### Migration Command
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts migrate --from docs/notes
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts migrate --from docs/notes
 ```
 
 This will:
@@ -457,9 +455,9 @@ This will:
 
 If the automated migration doesn't handle your case:
 
-1. Run `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id` to get the repo ID
-2. Run `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts scaffold` to create the target structure
+1. Run `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id` to get the repo ID
+2. Run `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts scaffold` to create the target structure
 3. Manually copy your notes to `~/.claude/repo_notes/<repo_id>/notes/`
 4. Fix any relative links that now point to the wrong location
-5. Run `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav` to rebuild navigation
-6. Run `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render` to re-render diagrams
+5. Run `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav` to rebuild navigation
+6. Run `export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render` to re-render diagrams

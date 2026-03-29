@@ -1,10 +1,11 @@
 ---
 name: project
-description: Brainstorm, plan, and track new projects within a codebase. Create project notes, explore ideas with files and URLs, ask questions against project knowledge, and track open questions.
+version: 2.23.0
+description: Brainstorm, plan, and track new projects within a codebase. Create project notes, explore ideas with files and URLs, ask questions against project knowledge, and track open questions. Use when the user says "start a project", "brainstorm ideas for X", "plan a feature", "create project notes", "ask about project Y", or wants project-level planning and tracking.
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "WebFetch", "WebSearch"]
 ---
 
-**Shared context:** Before starting, read `references/shared-context.md` in this plugin's directory for script invocation patterns, note structure rules, and diagram guidelines. All script paths use `<plugin_root>` — resolve it from this skill's location: `skills/project/SKILL.md` → plugin root is `../../`.
+**Shared context:** Before starting, read `${CLAUDE_PLUGIN_ROOT}/references/shared-context.md` for script invocation patterns, note structure rules, and diagram guidelines.
 
 # Project Notes
 
@@ -59,11 +60,11 @@ You are managing project-level brainstorming and planning notes. Project notes l
 **MANDATORY** — always run this before doing anything:
 
 ```bash
-cd <plugin_root> && test -d .venv || uv sync
+cd ${CLAUDE_PLUGIN_ROOT} && test -d .venv || uv sync
 ```
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts repo-id
 ```
 
 Projects live at: `~/.claude/repo_notes/<repo_id>/projects/`
@@ -246,7 +247,7 @@ status: brainstorming
 
 7. Run the diagram verifier to check for missing diagrams:
    ```bash
-   export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+   export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts verify-diagrams
    ```
    If any issues are reported for this project's notes, go back and create the missing diagrams before continuing.
 8. Add any new open questions discovered during brainstorming to the project's `index.md` under `## Open Questions`
@@ -271,7 +272,7 @@ Every brainstorm session that creates or updates topic notes MUST produce at lea
 After creating `.excalidraw` files, render them:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render --repo-id <repo_id>
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts render --repo-id <repo_id>
 ```
 
 View each rendered PNG with the Read tool to verify quality. Embed with `![description](./filename.png)` and always include a text description below.
