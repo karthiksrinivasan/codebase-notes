@@ -117,7 +117,7 @@ How does this relate to our codebase? What can we learn or apply?
 
 Use web search to find relevant resources, then create multiple paper/article notes under the topic directory.
 
-## Step 3.5: Create Diagrams
+## Step 4: Create Diagrams
 
 Every research note MUST include at least one Excalidraw diagram. Research notes benefit greatly from visual representation — readers grasp technical approaches and comparisons much faster with diagrams.
 
@@ -139,21 +139,21 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/sc
 
 View each rendered PNG with the Read tool to verify quality. Fix and re-render until clean. Embed in the note with `![description](./filename.png)` and always include a text description below that stands alone without the image.
 
-## Step 4: Update Topic Index
+## Step 5: Update Topic Index
 
 The topic's `index.md` should contain a Paper/Article Index table and Key Insights summary.
 
-## Step 5: Update Research Root Index
+## Step 6: Update Research Root Index
 
 Update `research/index.md` with the new topic and paper counts.
 
-## Step 6: Rebuild Navigation
+## Step 7: Rebuild Navigation
 
 ```bash
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts nav
 ```
 
-## Step 7: Verify Diagram Coverage
+## Step 8: Verify Diagram Coverage
 
 **MANDATORY** — run the diagram verifier after writing research notes:
 

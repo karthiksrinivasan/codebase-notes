@@ -37,7 +37,7 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/sc
 
 Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
 
-## Step 0.5: Ensure index.md exists
+## Step 1: Ensure index.md exists
 
 Run scaffold to ensure `index.md` and all subdirectories exist (idempotent — safe for already-initialized repos):
 
@@ -45,13 +45,13 @@ Run scaffold to ensure `index.md` and all subdirectories exist (idempotent — s
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts scaffold
 ```
 
-## Step 1: Read Overview
+## Step 2: Read Overview
 
 ```
 Read ~/.claude/repo_notes/<repo_id>/notes/00-overview.md
 ```
 
-## Step 2: Run Staleness Check
+## Step 3: Run Staleness Check
 
 ```bash
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale --no-cache
@@ -63,7 +63,7 @@ If `--all-repos` was specified:
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd ${CLAUDE_PLUGIN_ROOT}/scripts && uv run python -m scripts stale --all-repos --no-cache
 ```
 
-## Step 3: Present Knowledge Map
+## Step 4: Present Knowledge Map
 
 Combine the overview's topic list with staleness data. If `--json` was specified, output as JSON. If `--verbose` was specified, include changed files for stale notes.
 
@@ -79,7 +79,7 @@ Knowledge Map for <repo>
 | 4 | Config | FRESH | 04-config/ (1 note) | 2026-03-17 |
 ```
 
-## Step 4: Suggest Actions
+## Step 5: Suggest Actions
 
 Based on the results:
 
