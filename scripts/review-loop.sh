@@ -399,7 +399,7 @@ phase_confirm() {
     local confirm_ts
     confirm_ts="$(date +%Y%m%d-%H%M%S)"
     mv "$review_dir" "${review_dir}.pre-confirm-${confirm_ts}"
-    info "Archived existing review for fresh confirm review"
+    info "Archived existing review for fresh confirm review" >&2
 
     # Restore deferred registry into new directory
     if [[ -n "$saved_registry" ]]; then
@@ -409,8 +409,9 @@ phase_confirm() {
   fi
 
   # Run fresh review (phase_review sees no review.md → mode=new)
-  info "CONFIRM sub-step 1: Fresh review (unbiased)"
-  phase_review "$branch" || warn "Confirm review exited with error — assessing results anyway"
+  info "CONFIRM sub-step 1: Fresh review (unbiased)" >&2
+  # Redirect all phase_review output to stderr so $(phase_confirm) only captures our echo
+  phase_review "$branch" >&2 || warn "Confirm review exited with error — assessing results anyway" >&2
 
   # --- Sub-step 2: Script-based assessment ---
   local review_path="${review_dir}/review.md"
@@ -420,14 +421,14 @@ phase_confirm() {
     return
   fi
 
-  info "CONFIRM sub-step 2: Assess findings against deferred registry"
+  info "CONFIRM sub-step 2: Assess findings against deferred registry" >&2
 
   # Auto-populate deferred registry from this review's deferred findings
   run_script review-deferred \
     --registry-path "$registry_path" \
     --action auto-populate \
     --review-path "$review_path" \
-    --cycle "$cycle" 2>/dev/null || true
+    --cycle "$cycle" >/dev/null 2>&1 || true
 
   # Run assessment
   local assess_json
@@ -445,10 +446,10 @@ phase_confirm() {
   info "ASSESS: $new_qualifying new qualifying, $re_discovered re-discovered, $contradictions contradictions (of $total total)" >&2
 
   if [[ "$re_discovered" -gt 0 ]]; then
-    info "ASSESS: $re_discovered findings were previously deferred — not counted as qualifying" >&2
+    info "ASSESS: $re_discovered re-discovered deferred findings filtered out" >&2
   fi
   if [[ "$contradictions" -gt 0 ]]; then
-    warn "ASSESS: $contradictions findings contradict prior fixes — flagged, not counted" >&2
+    warn "ASSESS: $contradictions contradictions with prior fixes filtered out" >&2
   fi
 
   # Return convergence decision
