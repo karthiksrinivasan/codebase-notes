@@ -446,10 +446,12 @@ def _write_commit_file(
 
 def run(args) -> int:
     """CLI entry point called from __main__.py."""
+    import os  # noqa: PLC0415
     run_commits_command(
         author=getattr(args, "author", None),
         since=getattr(args, "since", None),
         path=getattr(args, "path", None) or None,
         repo_id=getattr(args, "repo_id", None),
+        cwd=os.environ.get("REPO_ROOT"),
     )
     return 0
