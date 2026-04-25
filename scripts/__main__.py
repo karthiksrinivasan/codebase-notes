@@ -24,14 +24,6 @@ def main() -> int:
     stale_parser.add_argument("--no-cache", action="store_true", help="Skip staleness cache")
     stale_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
-    # nav
-    nav_parser = subparsers.add_parser("nav", help="Rebuild all navigation links")
-    nav_parser.add_argument("--repo-id", help="Repo ID (auto-detected if omitted)")
-
-    # render
-    render_parser = subparsers.add_parser("render", help="Render .excalidraw to .png")
-    render_parser.add_argument("--repo-id", help="Repo ID (auto-detected if omitted)")
-
     # commits
     commits_parser = subparsers.add_parser("commits", help="Generate commit history notes")
     commits_parser.add_argument("--author", required=True, help="Author name or email")
@@ -64,11 +56,17 @@ def main() -> int:
     verify_parser = subparsers.add_parser("verify-diagrams", help="Check notes for missing diagrams")
     verify_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
-    # context-index
-    ctx_parser = subparsers.add_parser("context-index", help="Generate compact notes index for context priming")
-    ctx_parser.add_argument("--repo-id", help="Repo ID (auto-detected if omitted)")
-    ctx_parser.add_argument("--filter-stdin", action="store_true", help="Filter by PostToolUse stdin input")
-    ctx_parser.add_argument("--json-envelope", action="store_true", help="Wrap output in hook JSON format")
+    # resolve-vault
+    subparsers.add_parser("resolve-vault", help="Print the vault path for the current repo")
+
+    # list-vaults
+    subparsers.add_parser("list-vaults", help="List all Obsidian vaults")
+
+    # migrate-to-vault
+    mtv_parser = subparsers.add_parser("migrate-to-vault", help="Migrate repo_notes to Obsidian vault")
+    mtv_parser.add_argument("--repo-id", help="Specific repo ID to migrate")
+    mtv_parser.add_argument("--all", action="store_true", help="Migrate all repos")
+    mtv_parser.add_argument("--dry-run", action="store_true", help="Preview only")
 
     # review-forge
     forge_parser = subparsers.add_parser("review-forge", help="Detect git forge from remote URL")
@@ -149,15 +147,15 @@ def main() -> int:
         "repo-id": "scripts.repo_id",
         "scaffold": "scripts.scaffold",
         "stale": "scripts.staleness",
-        "nav": "scripts.nav_links",
-        "render": "scripts.render",
         "commits": "scripts.commits",
         "auto-update": "scripts.cron",
         "cron": "scripts.cron",
         "migrate": "scripts.migrate",
         "stats": "scripts.stats",
         "verify-diagrams": "scripts.verify_diagrams",
-        "context-index": "scripts.context_index",
+        "resolve-vault": "scripts.vault",
+        "list-vaults": "scripts.vault",
+        "migrate-to-vault": "scripts.migrate",
         "review-forge": "scripts.code_review",
         "review-assess": "scripts.code_review",
         "review-deferred": "scripts.code_review",
@@ -200,6 +198,12 @@ def main() -> int:
             return mod.run_status(args)
         elif args.command == "review-frontmatter":
             return mod.run_frontmatter(args)
+        elif args.command == "resolve-vault":
+            return mod.run_resolve_vault(args)
+        elif args.command == "list-vaults":
+            return mod.run_list_vaults(args)
+        elif args.command == "migrate-to-vault":
+            return mod.run_migrate_to_vault(args)
         else:
             return mod.run(args)
     except ImportError:

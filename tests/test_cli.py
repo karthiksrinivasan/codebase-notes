@@ -19,7 +19,8 @@ def _run_scripts(*args):
 def test_help_shows_all_commands():
     result = _run_scripts("--help")
     assert result.returncode == 0
-    for cmd in ["repo-id", "scaffold", "stale", "nav", "render", "commits", "auto-update", "cron", "migrate", "stats",
+    for cmd in ["repo-id", "scaffold", "stale", "commits", "auto-update", "cron", "migrate", "stats",
+                "resolve-vault", "list-vaults", "migrate-to-vault",
                 "review-forge", "review-stack", "review-loop-state"]:
         assert cmd in result.stdout, f"Missing subcommand: {cmd}"
 
@@ -27,3 +28,29 @@ def test_help_shows_all_commands():
 def test_no_command_prints_help():
     result = _run_scripts()
     assert result.returncode == 1
+
+
+def test_help_includes_new_commands(capsys):
+    from scripts.__main__ import main
+    import sys
+    sys.argv = ["scripts", "--help"]
+    try:
+        main()
+    except SystemExit:
+        pass
+    output = capsys.readouterr().out
+    assert "resolve-vault" in output
+    assert "list-vaults" in output
+    assert "migrate-to-vault" in output
+
+
+def test_help_excludes_removed_commands(capsys):
+    from scripts.__main__ import main
+    import sys
+    sys.argv = ["scripts", "--help"]
+    try:
+        main()
+    except SystemExit:
+        pass
+    output = capsys.readouterr().out
+    assert "context-index" not in output
