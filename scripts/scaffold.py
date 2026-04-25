@@ -1,60 +1,19 @@
-"""Scaffold notes directory structure for a repo."""
+"""Scaffold Obsidian vault structure for a repo."""
 
-import fcntl
-import os
+import json
 import shutil
 import sys
 from datetime import date
 from pathlib import Path
 
 from scripts.repo_id import resolve_repo_id
+from scripts.vault import repo_id_to_slug, VAULTS_BASE, read_vault_config, write_vault_config
 
-REPO_NOTES_BASE = Path.home() / ".claude" / "repo_notes"
 REFERENCES_DIR = Path(__file__).resolve().parent.parent / "references"
 
-INDEX_CONTENT = """\
-# Codebase Notes
-
-This directory contains structured knowledge about the repository, organized into five areas:
-
-## `notes/`
-
-Architecture and design notes about the codebase itself. Each note covers a topic
-(API layer, data models, auth system, etc.) with Excalidraw diagrams, key file references,
-and links to related notes. Start with `notes/00-overview.md` for the knowledge map.
-
-Managed by: `/codebase-notes:init`, `/codebase-notes:explore`, `/codebase-notes:update`
-
-## `commits/`
-
-Structured summaries of recent git activity, grouped by author and code area.
-Useful for onboarding, understanding what changed recently, or preparing release notes.
-
-Managed by: `/codebase-notes:commits`
-
-## `research/`
-
-Notes from external sources — papers, articles, blog posts, and documentation.
-Organized by topic with relevance tags linking back to codebase areas.
-
-Managed by: `/codebase-notes:research`
-
-## `projects/`
-
-Brainstorming, planning, and tracking notes for ongoing projects within the codebase.
-Each project gets its own subdirectory with design docs, open questions, and decision logs.
-
-Managed by: `/codebase-notes:project`
-
-## `code-reviews/`
-
-Multi-persona code reviews for PRs and feature branches. Each review contains
-onboarding context (pre-reqs, motivation, scope) and structured feedback from
-five review personas: Systems Architect, Domain Expert, Standards Compliance,
-Adversarial Path Tracer, and Build & Runtime Verifier.
-
-Managed by: `/codebase-notes:code-review`
-"""
+# ---------------------------------------------------------------------------
+# Skeleton content
+# ---------------------------------------------------------------------------
 
 OVERVIEW_SKELETON = """\
 ---
@@ -63,7 +22,14 @@ last_updated: {today}
 ---
 # Codebase Overview
 
-> **Navigation:** This is the root note.
+> **Navigation:** This is the root knowledge map for the vault.
+
+```dataview
+TABLE status, file.mtime as "Last Updated"
+FROM "notes"
+WHERE file.name != "overview"
+SORT file.name ASC
+```
 
 ## Topics
 
@@ -76,68 +42,247 @@ _No topics yet. Run exploration to populate._
 | | |
 """
 
+HOT_SKELETON = """\
+---
+last_updated: {today}
+---
+# Hot Topics
 
-def _register_clone_path(repo_dir: Path, clone_path: str) -> None:
-    repo_paths_file = repo_dir / ".repo_paths"
-    lock_file = repo_dir / ".repo_paths.lock"
-    lock_file.touch(exist_ok=True)
-    fd = os.open(str(lock_file), os.O_RDWR)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        existing: set[str] = set()
-        if repo_paths_file.exists():
-            existing = set(l.strip() for l in repo_paths_file.read_text().splitlines() if l.strip())
-        if clone_path not in existing:
-            existing.add(clone_path)
-            repo_paths_file.write_text("\n".join(sorted(existing)) + "\n")
-        fcntl.flock(fd, fcntl.LOCK_UN)
-    finally:
-        os.close(fd)
+Active threads, open questions, and things to watch.
+
+- _Nothing yet._
+"""
+
+LOG_SKELETON = """\
+---
+last_updated: {today}
+---
+# Session Log
+
+Chronological log of exploration and research sessions.
+
+| Date | Activity | Notes |
+|------|----------|-------|
+| | | |
+"""
+
+DASHBOARD_SKELETON = """\
+---
+last_updated: {today}
+---
+# Dashboard
+
+## Stale Notes
+
+```dataview
+TABLE file.mtime as "Last Modified"
+FROM "notes"
+WHERE date(now) - file.mtime > dur(14 days)
+SORT file.mtime ASC
+```
+
+## Research
+
+```dataview
+TABLE status, source
+FROM "research"
+SORT file.mtime DESC
+LIMIT 10
+```
+
+## Recent Code Reviews
+
+```dataview
+TABLE file.mtime as "Reviewed"
+FROM "code-reviews"
+SORT file.mtime DESC
+LIMIT 10
+```
+"""
+
+NOTE_TEMPLATE = """\
+---
+title: "{{title}}"
+date: {{date}}
+status: draft
+tags: []
+---
+# {{title}}
+
+## Summary
+
+## Details
+
+## Related Notes
+"""
+
+RESEARCH_PAPER_TEMPLATE = """\
+---
+title: "{{title}}"
+date: {{date}}
+source: ""
+status: unread
+relevance: []
+tags: []
+---
+# {{title}}
+
+## Key Points
+
+## Relevance to Codebase
+
+## Notes
+"""
+
+# ---------------------------------------------------------------------------
+# Obsidian config files
+# ---------------------------------------------------------------------------
+
+OBSIDIAN_APP = {
+    "strictLineBreaks": True,
+    "showFrontmatter": True,
+    "livePreview": True,
+    "readableLineLength": True,
+}
+
+OBSIDIAN_CORE_PLUGINS = [
+    "file-explorer",
+    "global-search",
+    "graph",
+    "backlink",
+    "outgoing-link",
+    "tag-pane",
+    "properties",
+    "page-preview",
+    "command-palette",
+    "editor-status",
+    "bookmarks",
+]
+
+OBSIDIAN_COMMUNITY_PLUGINS = [
+    "dataview",
+    "obsidian-excalidraw-plugin",
+    "templater-obsidian",
+]
+
+OBSIDIAN_GRAPH = {
+    "colorGroups": [
+        {"query": "path:notes", "color": {"a": 1, "h": 212, "s": 100, "l": 50}},
+        {"query": "path:research", "color": {"a": 1, "h": 120, "s": 60, "l": 40}},
+        {"query": "path:code-reviews", "color": {"a": 1, "h": 30, "s": 100, "l": 50}},
+        {"query": "path:projects", "color": {"a": 1, "h": 270, "s": 60, "l": 50}},
+        {"query": "path:commits", "color": {"a": 1, "h": 0, "s": 0, "l": 50}},
+    ]
+}
+
+# ---------------------------------------------------------------------------
+# Directory structure
+# ---------------------------------------------------------------------------
+
+VAULT_DIRS = [
+    "notes",
+    "research",
+    "projects",
+    "commits",
+    "code-reviews",
+    "meta",
+    "wiki",
+    "_templates",
+    ".obsidian",
+    ".obsidian/snippets",
+]
+
+# ---------------------------------------------------------------------------
+# Main scaffolding function
+# ---------------------------------------------------------------------------
 
 
-def scaffold_repo(repo_id: str, clone_path: str) -> None:
-    repo_dir = REPO_NOTES_BASE / repo_id
-    notes_dir = repo_dir / "notes"
-    commits_dir = repo_dir / "commits"
-    research_dir = repo_dir / "research"
-    projects_dir = repo_dir / "projects"
+def scaffold_vault(
+    vault_dir: Path,
+    repo_id: str,
+    clone_path: str,
+    references_dir: Path | None = None,
+) -> None:
+    """Create or update an Obsidian vault for a repository.
 
-    code_reviews_dir = repo_dir / "code-reviews"
+    Idempotent: safe to call multiple times. Content files (overview, wiki,
+    templates, RULES) are only written if they don't already exist. Obsidian
+    config files (.obsidian/) are always overwritten to stay current.
+    """
+    refs = references_dir or REFERENCES_DIR
 
-    notes_dir.mkdir(parents=True, exist_ok=True)
-    commits_dir.mkdir(parents=True, exist_ok=True)
-    research_dir.mkdir(parents=True, exist_ok=True)
-    projects_dir.mkdir(parents=True, exist_ok=True)
-    code_reviews_dir.mkdir(parents=True, exist_ok=True)
+    # 1. Create directories
+    for d in VAULT_DIRS:
+        (vault_dir / d).mkdir(parents=True, exist_ok=True)
 
-    rules_dest = notes_dir / "RULES.md"
-    rules_src = REFERENCES_DIR / "RULES-template.md"
+    # 2. Create or update .vault-config.json
+    config = read_vault_config(vault_dir)
+    if config is None:
+        config = {
+            "repo_id": repo_id,
+            "repo_slug": repo_id_to_slug(repo_id),
+            "clone_paths": [clone_path],
+            "created": date.today().isoformat(),
+            "version": 3,
+        }
+    else:
+        if clone_path not in config.get("clone_paths", []):
+            config.setdefault("clone_paths", []).append(clone_path)
+    write_vault_config(vault_dir, config)
+
+    today = date.today().isoformat()
+
+    # 3. Create notes/overview.md (only if not exists)
+    overview = vault_dir / "notes" / "overview.md"
+    if not overview.exists():
+        overview.write_text(OVERVIEW_SKELETON.format(today=today))
+
+    # 4. Create wiki/hot.md (only if not exists)
+    hot = vault_dir / "wiki" / "hot.md"
+    if not hot.exists():
+        hot.write_text(HOT_SKELETON.format(today=today))
+
+    # 5. Create wiki/log.md (only if not exists)
+    log = vault_dir / "wiki" / "log.md"
+    if not log.exists():
+        log.write_text(LOG_SKELETON.format(today=today))
+
+    # 6. Create meta/dashboard.md (only if not exists)
+    dashboard = vault_dir / "meta" / "dashboard.md"
+    if not dashboard.exists():
+        dashboard.write_text(DASHBOARD_SKELETON.format(today=today))
+
+    # 7. Copy RULES.md from references (only if not exists)
+    rules_dest = vault_dir / "RULES.md"
+    rules_src = refs / "RULES-template.md"
     if not rules_dest.exists() and rules_src.exists():
         shutil.copy2(rules_src, rules_dest)
 
-    overview = notes_dir / "00-overview.md"
-    if not overview.exists():
-        overview.write_text(OVERVIEW_SKELETON.format(today=date.today().isoformat()))
+    # 8. Create templates (only if not exist)
+    note_tpl = vault_dir / "_templates" / "note.md"
+    if not note_tpl.exists():
+        note_tpl.write_text(NOTE_TEMPLATE)
 
-    index_file = repo_dir / "index.md"
-    if not index_file.exists():
-        index_file.write_text(INDEX_CONTENT)
+    research_tpl = vault_dir / "_templates" / "research-paper.md"
+    if not research_tpl.exists():
+        research_tpl.write_text(RESEARCH_PAPER_TEMPLATE)
 
-    # Patch existing index.md to include code-reviews section if missing
-    if index_file.exists():
-        content = index_file.read_text(encoding="utf-8")
-        if "code-reviews" not in content:
-            code_reviews_section = (
-                '\n## `code-reviews/`\n\n'
-                'Multi-persona code reviews for PRs and feature branches. Each review contains\n'
-                'onboarding context (pre-reqs, motivation, scope) and structured feedback from\n'
-                'four review personas: Systems Architect, Domain Expert, Standards Compliance,\n'
-                'and Adversarial Path Tracer.\n\n'
-                'Managed by: `/codebase-notes:code-review`\n'
-            )
-            index_file.write_text(content + code_reviews_section, encoding="utf-8")
+    # 9. Write .obsidian/ config files (always overwrite)
+    obsidian = vault_dir / ".obsidian"
+    _write_json(obsidian / "app.json", OBSIDIAN_APP)
+    _write_json(obsidian / "core-plugins.json", OBSIDIAN_CORE_PLUGINS)
+    _write_json(obsidian / "community-plugins.json", OBSIDIAN_COMMUNITY_PLUGINS)
+    _write_json(obsidian / "graph.json", OBSIDIAN_GRAPH)
 
-    _register_clone_path(repo_dir, clone_path)
+
+def _write_json(path: Path, data) -> None:
+    """Write a JSON file with consistent formatting."""
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
 
 
 def run(args) -> int:
@@ -145,8 +290,10 @@ def run(args) -> int:
         from scripts.repo_id import _resolve_cwd
         clone_path = _resolve_cwd()
         repo_id = resolve_repo_id(cwd=clone_path)
-        scaffold_repo(repo_id, clone_path)
-        print(f"Scaffolded: {REPO_NOTES_BASE / repo_id}")
+        slug = repo_id_to_slug(repo_id)
+        vault_dir = VAULTS_BASE / slug
+        scaffold_vault(vault_dir, repo_id, clone_path)
+        print(f"Scaffolded vault: {vault_dir}")
         return 0
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
