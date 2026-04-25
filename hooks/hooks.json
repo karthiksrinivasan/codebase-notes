@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/context-prime\" session-start",
-            "timeout": 15
+            "command": "cat \"$(cat ~/vaults/.active-vault 2>/dev/null)/wiki/hot.md\" 2>/dev/null || true",
+            "timeout": 5
           }
         ]
       }
@@ -18,8 +18,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/context-prime\" post-tool-use",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/vault-git-sync\" post-tool-use",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Update wiki/hot.md in the active vault with a brief summary of what was accomplished this session. Keep it under 500 words. Focus on decisions made, findings, and next steps."
           }
         ]
       }
