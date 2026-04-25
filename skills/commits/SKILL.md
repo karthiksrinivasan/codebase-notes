@@ -26,13 +26,15 @@ allowed-tools: ["Read", "Write", "Bash", "Glob"]
 
 You are generating structured notes from git commit history.
 
-## Step 0: Resolve Notes Path
+## Step 0: Resolve Vault Path
 
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts resolve-vault
 ```
+
+Commit notes are stored at: `~/vaults/<slug>/commits/`
 
 ## Step 1: Generate Commit Notes
 
@@ -54,7 +56,7 @@ If `--topic` was specified, filter and analyze commits related to that area.
 
 ## Step 2: Review Generated Notes
 
-The command generates markdown files in `~/.claude/repo_notes/<repo_id>/commits/` grouped by author.
+The command generates markdown files in `~/vaults/<slug>/commits/` grouped by author.
 
 Read the generated files and present a summary:
 - Number of commits per author
@@ -75,13 +77,7 @@ Commit notes MUST include at least one Excalidraw diagram to visualize change pa
 
 For the overall commit summary, create a high-level diagram showing which parts of the codebase were most active and how changes relate to each other.
 
-Build diagrams section-by-section. After creating all `.excalidraw` files:
-
-```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
-```
-
-View each rendered PNG with the Read tool to verify quality. Fix and re-render until clean. Embed in the relevant commit note with `![description](./filename.png)` and always include a text description below that stands alone without the image.
+Build diagrams section-by-section. After creating all `.excalidraw` files, embed them in the relevant commit notes with `![[filename.excalidraw]]` — Obsidian renders them natively. Always include a text description below each diagram that stands alone without the image.
 
 ## Step 4: Summarize (Optional)
 
@@ -109,4 +105,4 @@ Check if heavily-modified code areas have stale notes:
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
 ```
 
-Flag notes that cover the same areas as recent commits.
+Flag notes that cover the same areas as recent commits. Use wikilinks when referencing stale notes (e.g., `[[auth/index|Authentication notes]]`).

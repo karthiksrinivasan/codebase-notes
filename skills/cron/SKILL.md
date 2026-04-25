@@ -42,11 +42,11 @@ On macOS, this installs a launchd plist at `~/Library/LaunchAgents/com.codebase-
 When triggered, the auto-update process:
 
 1. Acquires a PID-based lock file to prevent concurrent runs
-2. Scans all repos in `~/.claude/repo_notes/` for stale notes
-3. Selects the top 5 most-stale repos (by number of changed files)
+2. Scans all vaults in `~/vaults/*/` for stale notes
+3. Selects the top 5 most-stale vaults (by number of changed files)
 4. For each, spawns a non-interactive `claude -p` session with the update prompt
 5. Each session has a 10-minute timeout
-6. Logs all activity to `~/.claude/repo_notes/cron.log`
+6. Logs all activity to `~/vaults/cron.log`
 7. Releases the lock
 
 ## Uninstall
@@ -60,7 +60,13 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts &&
 Check the cron log:
 
 ```bash
-cat ~/.claude/repo_notes/cron.log
+cat ~/vaults/cron.log
+```
+
+List all known vaults to see what's being monitored:
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts list-vaults
 ```
 
 Run a manual update to test:

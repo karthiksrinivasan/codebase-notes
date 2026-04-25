@@ -27,19 +27,19 @@ allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "WebFe
 
 You are creating or updating research notes — a curated knowledge base of external resources (papers, articles, web content) organized by topic. Research notes live alongside code notes but in a dedicated `research/` subdirectory.
 
-## Step 0: Resolve Notes Path
+## Step 0: Resolve Vault Path
 
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts resolve-vault
 ```
 
-Research notes live at: `~/.claude/repo_notes/<repo_id>/research/`
+Research notes live at: `~/vaults/<slug>/research/`
 
 Read the research index if it exists:
 ```
-Read ~/.claude/repo_notes/<repo_id>/research/index.md
+Read ~/vaults/<slug>/research/index.md
 ```
 
 ## Step 1: Determine Research Scope
@@ -58,11 +58,13 @@ If the research directory doesn't exist, create it:
 ```
 research/
 ├── index.md                    # Research overview — all topics
-├── 01-{topic}/
+├── {topic}/
 │   ├── index.md               # Topic overview — papers/articles list
-│   ├── 01-{paper-or-article}.md
+│   ├── {paper-or-article}.md
 │   └── ...
 ```
+
+No numeric prefixes in directory or file names. Use frontmatter `order:` if explicit sorting is needed.
 
 ## Step 3: Research and Document
 
@@ -76,10 +78,9 @@ type: research-paper
 source_url: https://...
 relevance: foundational|competitive|adjacent|overview
 date_added: YYYY-MM-DD
+tags: [research, <topic>]
 ---
 # Paper/Article Title
-
-> **Navigation:** Up: [Topic](./index.md) | Prev/Next links
 
 | Field | Value |
 |-------|-------|
@@ -103,7 +104,7 @@ Bullet points of the most important findings.
 
 ## Project Context
 
-How does this relate to our codebase? What can we learn or apply?
+How does this relate to our codebase? What can we learn or apply? See also: [[notes/relevant-note|relevant codebase note]].
 
 ## Key Takeaways
 
@@ -130,29 +131,23 @@ Every research note MUST include at least one Excalidraw diagram. Research notes
 
 For individual paper/article notes, diagram the paper's technical approach or architecture. For topic index notes with multiple papers, create an overview diagram showing the research landscape — how papers/articles relate to each other and to the project.
 
-Build diagrams section-by-section. After creating all `.excalidraw` files:
-
-```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
-```
-
-View each rendered PNG with the Read tool to verify quality. Fix and re-render until clean. Embed in the note with `![description](./filename.png)` and always include a text description below that stands alone without the image.
+Build diagrams section-by-section. After creating all `.excalidraw` files, embed them in the notes with `![[filename.excalidraw]]` — Obsidian renders them natively. Always include a text description below each diagram that stands alone without the image.
 
 ## Step 4: Update Topic Index
 
-The topic's `index.md` should contain a Paper/Article Index table and Key Insights summary.
+The topic's `index.md` should contain a Paper/Article Index table and Key Insights summary. Use wikilinks for entries:
+
+```markdown
+| Paper | Year | Relevance |
+|-------|------|-----------|
+| [[paper-title\|Paper Title]] | 2024 | foundational |
+```
 
 ## Step 5: Update Research Root Index
 
-Update `research/index.md` with the new topic and paper counts.
+Update `research/index.md` with the new topic and paper counts. Use wikilinks for topic links.
 
-## Step 6: Rebuild Navigation
-
-```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
-```
-
-## Step 7: Verify Diagram Coverage
+## Step 6: Verify Diagram Coverage
 
 **MANDATORY** — run the diagram verifier after writing research notes:
 

@@ -22,13 +22,15 @@ allowed-tools: ["Read", "Bash"]
 
 You are displaying statistics about the codebase notes for the current repository.
 
-## Step 0: Resolve Notes Path
+## Step 0: Resolve Vault Path
 
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts resolve-vault
 ```
+
+Vault path: `~/vaults/<slug>/`
 
 ## Step 1: Run Stats Command
 

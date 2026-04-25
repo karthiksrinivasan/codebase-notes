@@ -1,6 +1,6 @@
 ---
 name: diagram
-description: Add or update Excalidraw architecture diagrams for codebase notes. Creates and renders diagrams to PNG with proper styling and text descriptions.
+description: Add or update Excalidraw architecture diagrams for codebase notes. Creates diagrams with proper styling and embeds them for native rendering in Obsidian.
 allowed-tools: ["Read", "Write", "Bash", "Glob", "Agent"]
 ---
 
@@ -12,27 +12,27 @@ allowed-tools: ["Read", "Write", "Bash", "Glob", "Agent"]
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `NOTE` | No | Path to the specific note to add a diagram to (e.g., `01-api/index.md`) |
+| `NOTE` | No | Path to the specific note to add a diagram to (e.g., `api/index.md`) |
 | `--type TYPE` | No | Diagram type: `architecture`, `dataflow`, `state`, `sequence`, `hierarchy` |
 | `--all-missing` | No | Find all notes without diagrams and create them |
 
 **Examples:**
-- `/codebase-notes:diagram 01-api/index.md --type architecture`
+- `/codebase-notes:diagram api/index.md --type architecture`
 - `/codebase-notes:diagram --all-missing`
 
 ---
 
 You are adding or updating Excalidraw diagrams for codebase notes.
 
-## Step 0: Resolve Notes Path
+## Step 0: Resolve Vault Path
 
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts resolve-vault
 ```
 
-Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
+Notes are at: `~/vaults/<slug>/notes/`
 
 ## Step 1: Read the Target Note
 
@@ -66,26 +66,31 @@ Create `.excalidraw` JSON with these style rules:
 
 Build diagrams section-by-section (not all at once — large diagrams hit token limits).
 
-Name the file: `<note-name>-<type>.excalidraw` (e.g., `01-api-architecture.excalidraw`)
+Name the file: `<note-name>-<type>.excalidraw` (e.g., `api-architecture.excalidraw`)
 
-## Step 4: Render
+Save the `.excalidraw` file alongside the note in the same directory.
 
-```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
-```
-
-## Step 5: View and Fix
-
-Read the rendered PNG to verify quality. Fix issues and re-render until clean.
-
-## Step 6: Embed in Note
+## Step 4: Embed in Note
 
 Add to the note's markdown:
+
 ```markdown
-![Description](./filename.png)
+![[diagram-name.excalidraw]]
 
 Text description of what the diagram shows — how components connect, data flow,
 key relationships. This must stand alone without the image.
 ```
 
+Obsidian renders `.excalidraw` files natively via the Excalidraw plugin. No render script or PNG export needed.
+
 Every diagram MUST have a text description below it.
+
+## Step 5: Verify Diagram Coverage
+
+Run the diagram verifier to confirm coverage is complete:
+
+```bash
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts verify-diagrams
+```
+
+If any HIGH or MEDIUM issues remain, go back and create the missing diagrams.

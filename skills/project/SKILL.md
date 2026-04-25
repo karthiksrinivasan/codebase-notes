@@ -41,18 +41,20 @@ You are managing project-level brainstorming and planning notes. Project notes l
 ## Storage Structure
 
 ```
-~/.claude/repo_notes/<repo_id>/projects/<project-name>/
+~/vaults/<slug>/projects/<project-name>/
 ├── index.md              # Project overview, goals, open questions, knowledge map
-├── 01-topic/
+├── topic/
 │   ├── index.md
-│   ├── 01-subtopic.md
-│   └── *.excalidraw / *.png
-├── 02-topic/
+│   ├── subtopic.md
+│   └── *.excalidraw
+├── another-topic/
 │   └── ...
 └── research/             # External material gathered during brainstorm
     ├── index.md
-    └── 01-source.md
+    └── source.md
 ```
+
+No numeric prefixes on directories or files. Use frontmatter `order:` if explicit ordering is needed.
 
 ## Step 0: Bootstrap and Resolve (ALL subcommands)
 
@@ -63,10 +65,10 @@ cd <plugin_root> && test -d .venv || uv sync
 ```
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts resolve-vault
 ```
 
-Projects live at: `~/.claude/repo_notes/<repo_id>/projects/`
+Projects live at: `~/vaults/<slug>/projects/`
 
 ## Project Resolution
 
@@ -91,7 +93,7 @@ None.
 
 ### Flow
 
-1. Run Step 0 to resolve the repo ID and projects path
+1. Run Step 0 to resolve the vault path and projects path
 2. List all subdirectories in `projects/` (excluding `research/` and `.active-project`)
 3. Read `projects/.active-project` if it exists to determine the active project
 4. For each project, read its `index.md` frontmatter to get `status` and `last_updated`
@@ -120,7 +122,7 @@ None.
 
 ### Flow
 
-1. Run Step 0 to resolve the repo ID and projects path
+1. Run Step 0 to resolve the vault path and projects path
 2. Verify `projects/<project-name>/` exists — if not, tell the user and suggest `new`
 3. Write the project name to `projects/.active-project` (plain text, just the name)
 4. Confirm to the user: "Active project set to **<project-name>**. All subsequent commands will use this project by default."
@@ -137,7 +139,7 @@ None.
 
 ### Flow
 
-1. Run Step 0 to resolve the repo ID and projects path
+1. Run Step 0 to resolve the vault path and projects path
 2. Check if `projects/<project-name>/` already exists
    - If it exists, tell the user the project already exists and suggest `/codebase-notes:project brainstorm` or `/codebase-notes:project update` instead. **Do not overwrite.**
 3. Ask the user guided questions to scaffold the project:
@@ -154,6 +156,7 @@ project: <project-name>
 created: <today's date YYYY-MM-DD>
 last_updated: <today's date YYYY-MM-DD>
 status: brainstorming
+tags: [project]
 ---
 # <Project Name>
 
@@ -201,7 +204,7 @@ status: brainstorming
 
 ### Flow
 
-1. Run Step 0 to resolve the repo ID and projects path
+1. Run Step 0 to resolve the vault path and projects path
 2. Resolve the project (see Project Resolution)
 3. Read `projects/<project-name>/index.md` for full project context
 4. Read existing topic notes to understand what's already been explored
@@ -220,7 +223,7 @@ status: brainstorming
      ```
      projects/<project-name>/research/
      ├── index.md
-     └── 01-source-name.md
+     └── source-name.md
      ```
    - Research source notes use this frontmatter:
      ```yaml
@@ -235,7 +238,7 @@ status: brainstorming
    - Draw on existing project notes for context
 
 6. After discussion, update project notes:
-   - **New topic area:** Create a new numbered topic directory (`NN-topic-name/`) with an `index.md`. Scan existing directories to pick the next sequential number.
+   - **New topic area:** Create a new topic directory (`topic-name/`) with an `index.md`. Use descriptive names without numeric prefixes; set `order:` frontmatter if ordering matters.
    - **Existing topic area:** Edit the relevant existing notes to incorporate new findings
    - Topic notes use minimal frontmatter:
      ```yaml
@@ -243,6 +246,7 @@ status: brainstorming
      last_updated: YYYY-MM-DD
      ---
      ```
+   - Use wikilinks for cross-references: `[[other-topic/index|Other Topic]]`
 
 7. Run the diagram verifier to check for missing diagrams:
    ```bash
@@ -253,7 +257,7 @@ status: brainstorming
 9. Update the Knowledge Map table in `index.md` if new topics were created or existing topics changed status
 10. Update `last_updated` in the project `index.md` frontmatter
 
-**Note:** Navigation links within a project are managed by Claude directly (same link format as codebase notes), not the `nav` script.
+**Note:** Navigation within a project is handled by Obsidian backlinks and wikilinks — no `nav` script needed.
 
 ### Diagram Requirements
 
@@ -268,13 +272,7 @@ Every brainstorm session that creates or updates topic notes MUST produce at lea
 | Integration or API design | Data flow diagram showing connections and protocols |
 | Project roadmap or phases | Timeline diagram with milestones |
 
-After creating `.excalidraw` files, render them:
-
-```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render --repo-id <repo_id>
-```
-
-View each rendered PNG with the Read tool to verify quality. Embed with `![description](./filename.png)` and always include a text description below.
+After creating `.excalidraw` files, embed them in the notes with `![[filename.excalidraw]]` — Obsidian renders them natively. Always include a text description below each diagram.
 
 ---
 
@@ -289,14 +287,14 @@ View each rendered PNG with the Read tool to verify quality. Embed with `![descr
 
 ### Flow
 
-1. Run Step 0 to resolve the repo ID and projects path
+1. Run Step 0 to resolve the vault path and projects path
 2. Resolve the project (see Project Resolution)
 3. Read all project notes:
    - `projects/<project-name>/index.md`
    - All topic `index.md` files and subtopic notes
    - Research notes if relevant
 4. Answer the question **from project notes only** (including research notes within the project) — no code exploration, no web search
-5. Cite which notes the answer draws from
+5. Cite which notes the answer draws from (use wikilinks: `[[project/topic/note|Note Name]]`)
 6. If notes are insufficient to answer the question, say so explicitly and suggest `/codebase-notes:project brainstorm` to explore and fill the gap
 
 ---
@@ -314,7 +312,7 @@ View each rendered PNG with the Read tool to verify quality. Embed with `![descr
 
 ### Flow
 
-1. Run Step 0 to resolve the repo ID and projects path
+1. Run Step 0 to resolve the vault path and projects path
 2. Resolve the project (see Project Resolution)
 3. Read existing project notes to understand current state
 4. If `--file PATH`, `--url URL`, or a file path appears inline in the prompt, read the source material first — this is **input context** that informs the update to project notes. **Never modify the source file/URL itself.**
@@ -322,10 +320,10 @@ View each rendered PNG with the Read tool to verify quality. Embed with `![descr
    - Edit existing notes to incorporate changes
    - Add new content (new topic directories, new subtopic notes)
    - Reorganize structure if the prompt calls for it
-   - When creating new topic directories, scan existing directories and pick the next sequential number
+   - When creating new topic directories, use descriptive names without numeric prefixes
 6. Update `last_updated` in the frontmatter of every note that was modified
 7. Update the Knowledge Map table in `index.md` if structure changed (topics added, removed, or reorganized)
-8. Update navigation links in `index.md` if structure changed — managed by Claude directly, not the `nav` script
+8. Update wikilinks in `index.md` if structure changed — managed by Claude directly
 
 ---
 
@@ -339,7 +337,7 @@ View each rendered PNG with the Read tool to verify quality. Embed with `![descr
 
 ### Flow
 
-1. Run Step 0 to resolve the repo ID and projects path
+1. Run Step 0 to resolve the vault path and projects path
 2. Resolve the project (see Project Resolution)
 3. Read all project notes (index.md + all topic notes + research notes)
 4. Collect **explicit** open questions:
@@ -357,11 +355,11 @@ View each rendered PNG with the Read tool to verify quality. Embed with `![descr
    - Question 1
    - Question 2
 
-   ### From 01-topic-name
+   ### From topic-name
    - Question 3 (explicit)
-   - "How should we handle X?" (implicit, from 01-subtopic.md)
+   - "How should we handle X?" (implicit, from subtopic.md)
 
-   ### From 02-topic-name
+   ### From another-topic
    - TBD: decide on Y (implicit, from index.md)
    ```
 
@@ -381,6 +379,7 @@ project: my-project
 created: YYYY-MM-DD
 last_updated: YYYY-MM-DD
 status: brainstorming | active | paused | completed
+tags: [project]
 ---
 ```
 
@@ -388,6 +387,7 @@ status: brainstorming | active | paused | completed
 ```yaml
 ---
 last_updated: YYYY-MM-DD
+order: 1
 ---
 ```
 
@@ -399,12 +399,12 @@ date_added: YYYY-MM-DD
 ---
 ```
 
-## Naming and Numbering Convention
+## Naming Convention
 
-Project notes follow the same `NN-topic-name/` numbering as codebase notes. When creating a new topic directory, scan existing directories in the project and pick the next sequential number (e.g., if `01-auth/` and `02-api/` exist, the next is `03-`).
+Project notes use descriptive directory and file names without numeric prefixes (e.g., `auth-flow/`, `data-model.md`). Use `order:` frontmatter for explicit sort order when needed.
 
 Content from `--url` during brainstorm goes into the project's `research/` subdirectory.
 
 ## Script Compatibility
 
-The `nav` and `render` scripts operate on the `notes/` directory. Project notes at `projects/` are **independent** — navigation links within a project are managed by Claude directly (same link format, but no `nav` script automation). The `render` script can be pointed at a project directory with `--repo-id` if diagrams need rendering.
+The `render` and `nav` scripts are not used for project notes. Project notes at `projects/` are **independent** — navigation is handled by Obsidian backlinks and wikilinks, and Excalidraw files render natively without a render script.

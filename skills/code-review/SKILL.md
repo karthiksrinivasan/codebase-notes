@@ -58,7 +58,7 @@ Multi-persona review producing two artifacts per review:
 ## Storage Structure
 
 ```
-~/.claude/repo_notes/<repo_id>/code-reviews/<slug>/
+~/vaults/<slug>/code-reviews/<review-slug>/
 ├── context.md     # Onboarding context
 ├── review.md      # Multi-persona review, versioned
 └── fix-plan.md    # Fix execution plan
@@ -90,10 +90,10 @@ cd ${CLAUDE_PLUGIN_ROOT} && test -d .venv || uv sync
 ```
 
 ```bash
-run-script repo-id
+run-script resolve-vault
 ```
 
-Reviews live at: `~/.claude/repo_notes/<repo_id>/code-reviews/`. Create `code-reviews/` dir if missing.
+Reviews live at: `~/vaults/<slug>/code-reviews/`. Create `code-reviews/` dir if missing.
 
 **Forge detection:** `run-script review-forge` → returns JSON with `forge`, `cli`, `cli_available`, `cli_authenticated`, `cli_usable`. Use `cli_usable` to determine if PR/MR metadata is available. If `cli_usable` is false, fall back to branch-diff-only mode. If bare number passed without usable forge CLI, error: "Cannot resolve numeric identifier without gh or glab CLI."
 
@@ -211,7 +211,7 @@ git diff $MERGE_BASE <head>
 
 ### Step 3: Gather Cross-Reference Context
 
-1. Read notes index: `~/.claude/repo_notes/<repo_id>/notes/00-overview.md`
+1. Read notes index: `~/vaults/<slug>/notes/overview.md`
 2. Match changed files to notes via `git_tracked_paths` frontmatter. Read matching notes.
 3. Read repo's `CLAUDE.md` and/or `AGENTS.md` for Standards Compliance persona.
 4. If branch/PR relates to an active project, read ONLY `projects/<name>/context.md` — not other project files.
@@ -226,7 +226,7 @@ git diff $MERGE_BASE <head>
 
 Read template at `${CLAUDE_PLUGIN_ROOT}/skills/code-review/templates/context.md`. Fill placeholders: `{identifier}`, `{type}`, `{base}`, `{head}`, `{date}`, `{title}`, `{prerequisites}`, `{motivation}`, `{change_summary}`, `{area_rows}`, `{architecture_impact}`, `{implementation_approach}`, `{related_notes}`.
 
-Write to `~/.claude/repo_notes/<repo_id>/code-reviews/<slug>/context.md`. Set status to `review-in-progress` initially.
+Write to `~/vaults/<slug>/code-reviews/<review-slug>/context.md`. Set status to `review-in-progress` initially.
 
 If the change touches architectural boundaries (crosses between major components visible in the overview diagram), include an Excalidraw diagram showing the impact. Otherwise, skip diagrams for context.md.
 
@@ -254,7 +254,7 @@ The BRV agent reads files itself and runs commands — do NOT include the full d
 
 **Assemble review.md:** Read template at `${CLAUDE_PLUGIN_ROOT}/skills/code-review/templates/review.md`. Fill placeholders: `{identifier}`, `{date}`, `{title}`, `{head_sha}`, `{merge_base_sha}`, `{new_count}`, `{persona_sections}`, `{summary_rows}`, `{recommended_actions}`.
 
-Write to `~/.claude/repo_notes/<repo_id>/code-reviews/<slug>/review.md`.
+Write to `~/vaults/<slug>/code-reviews/<review-slug>/review.md`.
 
 **Fix Log:** The review.md includes a Fix Log section. The per-finding `**Status:**` field is the single source of truth — the Fix Log table is regenerated from those statuses. Never edit the Fix Log independently.
 
@@ -264,17 +264,11 @@ run-script review-status --review-path <path> --action assign-ids
 run-script review-status --review-path <path> --action regenerate-history-row --version 1 --trigger new --head-sha <HEAD_SHA>
 ```
 
-### Step 6: Render Diagrams (if any)
-
-```bash
-run-script render --repo-id <repo_id>
-```
-
-### Step 7: Flag Stale Notes
+### Step 6: Flag Stale Notes
 
 List notes that may become stale after the change merges. Offer to update with `/codebase-notes:update`.
 
-### Step 8: Present Summary
+### Step 7: Present Summary
 
 Show summary table. Offer: view persona details, update review, update stale notes.
 
@@ -467,7 +461,7 @@ Each executor: validates targets still exist, reads current code, applies fixes,
 
 ## Subcommand: `list`
 
-1. Run Step 0 to resolve repo ID and code-reviews path
+1. Run Step 0 to resolve vault path and code-reviews path
 2. List all subdirectories in `code-reviews/`
 3. For each review directory, read `context.md` frontmatter for metadata and `review.md` frontmatter for version/status:
    ```bash
@@ -483,7 +477,7 @@ Each executor: validates targets still exist, reads current code, applies fixes,
 
 ## Subcommand: `view`
 
-1. Run Step 0 to resolve repo ID and code-reviews path
+1. Run Step 0 to resolve vault path and code-reviews path
 2. Resolve identifier to slug. Check both slug form and scan directory names for partial matches.
 3. Read and display `context.md` — summarize onboarding context
 4. Read and display `review.md`:
@@ -543,7 +537,7 @@ For single-branch or in-session use, the inline flow below also works:
    **Progress:** Announce `### Branch N/M: <name>`
 
    a. **Load context:**
-      - If `--project`: read ONLY `~/.claude/repo_notes/<repo_id>/projects/<name>/context.md` for project context. Do NOT read other files in the project folder (research data, open questions, etc. will pollute context). Route to DE, SA, and APT personas only.
+      - If `--project`: read ONLY `~/vaults/<slug>/projects/<name>/context.md` for project context. Do NOT read other files in the project folder (research data, open questions, etc. will pollute context). Route to DE, SA, and APT personas only.
       - If stacked and parent completed: re-read parent's POST-FIX review.md for cross-branch context (summary + unresolved findings)
 
    b. **Review:** Check if `code-reviews/<slug>/` exists.
@@ -663,8 +657,8 @@ When this skill runs on a repo that already has codebase-notes but no `code-revi
 
 ## Cross-Referencing Protocol
 
-1. **Before context.md:** Read `notes/00-overview.md`. Grep `git_tracked_paths` across note frontmatter for changed files. Read matching notes.
-2. **During review.md:** Each persona references relevant notes. Domain Expert especially draws on domain notes.
+1. **Before context.md:** Read `notes/overview.md`. Grep `git_tracked_paths` across note frontmatter for changed files. Read matching notes.
+2. **During review.md:** Each persona references relevant notes using wikilinks (`[[note-name]]`). Domain Expert especially draws on domain notes.
 3. **After review.md:** Flag notes the change may make stale. Offer update via `/codebase-notes:update`.
 
 This cross-referencing leverages accumulated codebase-notes knowledge for architecture- and domain-aware reviews.

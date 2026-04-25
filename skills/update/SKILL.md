@@ -24,17 +24,19 @@ allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
 
 You are updating codebase notes that have become stale due to code changes.
 
-## Step 0: Resolve Notes Path
+## Step 0: Resolve Vault Path
 
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts resolve-vault
 ```
 
-Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
+Notes are at: `~/vaults/<slug>/notes/`
 
 ## Step 1: Check Staleness
+
+Read `meta/staleness-report.md` if it exists for a recent cached report. For a fresh check:
 
 ```bash
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts stale --no-cache
@@ -62,16 +64,10 @@ For each note being updated:
 3. Update the note in-place — prefer editing over rewriting
 4. Update the `git_tracked_paths` commit hashes in frontmatter
 5. Update `last_updated` date
-6. Check every section for diagram coverage — each section describing relationships or flows MUST have a diagram. Add missing diagrams, update stale ones.
+6. Check every section for diagram coverage — each section describing relationships or flows MUST have a diagram. Add missing diagrams (embed with `![[filename.excalidraw]]`), update stale ones.
+7. Ensure cross-references use wikilinks (`[[note-name]]`), not relative markdown links.
 
-## Step 4: Rebuild Navigation and Render
-
-```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
-```
-
-## Step 4.5: Verify Diagram Coverage
+## Step 4: Verify Diagram Coverage
 
 **MANDATORY** — run the diagram verifier after updating notes:
 
@@ -81,6 +77,14 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts &&
 
 If any HIGH or MEDIUM issues are reported for the updated notes, go back and create the missing diagrams before reporting to the user.
 
-## Step 5: Report
+## Step 5: Update wiki/hot.md
+
+After completing updates, refresh `wiki/hot.md`:
+
+- Update the "Stale / Needs Attention" section to remove notes that were just updated
+- Add any new findings to "Recent Findings"
+- Update `last_updated` date
+
+## Step 6: Report
 
 Show the user what was updated and present options for further exploration.

@@ -26,17 +26,17 @@ allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
 
 You are exploring a topic in the codebase and writing structured notes.
 
-## Step 0: Resolve Notes Path
+## Step 0: Resolve Vault Path
 
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts resolve-vault
 ```
 
-Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
+Notes are at: `~/vaults/<slug>/notes/`
 
-Read `00-overview.md` to understand current coverage. Check if this topic already has notes.
+Read `wiki/hot.md` for current session context, then read `notes/overview.md` to understand current coverage. Check if this topic already has notes.
 
 ## Step 1: Read Existing Notes
 
@@ -80,7 +80,8 @@ Follow the RULES.md capture matrix. For each note:
 3. Prefer tables for structured data
 4. Include a Key Files table
 5. Add YAML frontmatter with `git_tracked_paths`
-6. Create at least one Excalidraw diagram per note — more for complex topics
+6. Use wikilinks for cross-references: `[[other-note]]` or `[[other-note|Display Text]]`
+7. Create at least one Excalidraw diagram per note — more for complex topics
 
 ### Diagram Requirements
 
@@ -94,24 +95,11 @@ Every note MUST include at least one diagram. Use the diagram type table from sh
 | Configuration or reference | Hierarchy tree or ecosystem map |
 | Integration between systems | Arrows showing connections, protocols, data formats |
 
-For notes covering multiple concepts, create multiple diagrams (one per concept). Build diagrams section-by-section to avoid token limits. After writing all notes, render and verify:
+For notes covering multiple concepts, create multiple diagrams (one per concept). Build diagrams section-by-section to avoid token limits. Embed each with `![[filename.excalidraw]]` — Obsidian renders it natively, no PNG step needed. Every diagram MUST have a text description below it that stands alone without the image.
 
-```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
-```
+## Step 4: Update Overview
 
-View each rendered PNG with the Read tool to verify quality. Fix and re-render until clean. Every diagram MUST have a text description below it that stands alone without the image.
-
-## Step 4: Update Parents and Navigation
-
-After writing notes:
-
-```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts nav
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts render
-```
-
-Update `00-overview.md` Knowledge Map.
+After writing notes, update `notes/overview.md` Knowledge Map — add wikilinks to the new topic notes in both the Dataview fallback table and the static fallback.
 
 ## Step 4.5: Verify Diagram Coverage
 
@@ -123,7 +111,22 @@ export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts &&
 
 If any HIGH or MEDIUM issues are reported, go back and create the missing diagrams before presenting options to the user. Do not skip this step.
 
-## Step 5: Present Options
+## Step 5: Update wiki/hot.md
+
+Update `wiki/hot.md` to capture what was explored and any key findings:
+
+```markdown
+## Currently Active
+
+- Just explored: [[topic/index|Topic Name]] — key findings here
+
+## Recent Findings
+
+- <finding 1 with wikilink to note>
+- <finding 2>
+```
+
+## Step 6: Present Options
 
 Always present navigation options:
 

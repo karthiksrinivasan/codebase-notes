@@ -12,43 +12,45 @@ allowed-tools: ["Read", "Bash", "Glob"]
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `--all-repos` | No | Check all repos, not just the current one |
+| `--all-repos` | No | Check all vaults, not just the current one |
 | `--no-cache` | No | Skip the staleness cache (default: uses 10-min cache) |
 | `--json` | No | Output as JSON instead of table |
 | `--verbose` | No | Show changed files for stale notes |
 
 **Examples:**
 - `/codebase-notes:check` — Show knowledge map with staleness for current repo
-- `/codebase-notes:check --all-repos` — Check staleness across all repos
+- `/codebase-notes:check --all-repos` — Check staleness across all vaults
 - `/codebase-notes:check --verbose` — Include changed file details
 
 ---
 
 You are checking the status and freshness of codebase notes.
 
-## Step 0: Resolve Notes Path
+## Step 0: Resolve Vault Path
 
 **MANDATORY** — always resolve where notes live before doing anything:
 
 ```bash
-export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts repo-id
+export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts resolve-vault
 ```
 
-Notes are at: `~/.claude/repo_notes/<repo_id>/notes/`
+Notes are at: `~/vaults/<slug>/notes/`
 
-## Step 0.5: Ensure index.md exists
+## Step 0.5: Ensure vault structure exists
 
-Run scaffold to ensure `index.md` and all subdirectories exist (idempotent — safe for already-initialized repos):
+Run scaffold to ensure the vault directories exist (idempotent — safe for already-initialized vaults):
 
 ```bash
 export REPO_ROOT=$(git rev-parse --show-toplevel) && cd <plugin_root>/scripts && uv run python -m scripts scaffold
 ```
 
-## Step 1: Read Overview
+## Step 1: Read Overview and Cached Staleness
 
 ```
-Read ~/.claude/repo_notes/<repo_id>/notes/00-overview.md
+Read ~/vaults/<slug>/notes/overview.md
 ```
+
+If `meta/staleness-report.md` exists and `--no-cache` was not specified, read it for a recent staleness summary. Otherwise proceed to Step 2.
 
 ## Step 2: Run Staleness Check
 
@@ -72,11 +74,13 @@ Knowledge Map for <repo>
 
 | # | Topic | Status | Notes | Last Updated |
 |---|-------|--------|-------|--------------|
-| 1 | API Layer | FRESH | 01-api/ (3 notes) | 2026-03-18 |
-| 2 | Data Models | STALE (7 files) | 02-models/ (2 notes) | 2026-03-10 |
+| 1 | API Layer | FRESH | api/ (3 notes) | 2026-03-18 |
+| 2 | Data Models | STALE (7 files) | models/ (2 notes) | 2026-03-10 |
 | 3 | Auth System | — | not yet explored | — |
-| 4 | Config | FRESH | 04-config/ (1 note) | 2026-03-17 |
+| 4 | Config | FRESH | config/ (1 note) | 2026-03-17 |
 ```
+
+Topics are now named without numeric prefixes (e.g., `api/` not `02-api/`).
 
 ## Step 4: Suggest Actions
 
