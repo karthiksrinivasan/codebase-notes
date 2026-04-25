@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "codebase-notes",
-      "description": "Generate, explore, and maintain a hierarchical knowledge base of structured notes for any codebase",
-      "version": "2.23.0",
+      "description": "Generate, explore, and maintain an Obsidian-based knowledge vault for any codebase",
+      "version": "3.0.0",
       "author": {
         "name": "karthik"
       },
