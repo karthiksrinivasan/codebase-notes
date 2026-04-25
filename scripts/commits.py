@@ -1,7 +1,7 @@
 """Git commit history extraction, grouping, and markdown generation.
 
 Runs git log, groups commits by author and path prefix, outputs markdown
-files to ~/.claude/repo_notes/<repo_id>/commits/<author>/<path-slug>.md.
+files to ~/vaults/<slug>/commits/<author>/<path-slug>.md.
 """
 
 import re
@@ -326,8 +326,9 @@ def _resolve_repo_id(cwd: Optional[str] = None) -> str:
 
 
 def _get_notes_dir(repo_id: str) -> Path:
-    """Return repo base dir for repo_id (parent of 'commits/' and 'notes/' dirs)."""
-    return Path.home() / ".claude" / "repo_notes" / repo_id
+    """Return vault base dir for repo_id (parent of 'commits/' and 'notes/' dirs)."""
+    from scripts.vault import get_vault_dir
+    return get_vault_dir(repo_id)
 
 
 # Public aliases used by tests for patching
