@@ -253,6 +253,63 @@ class TestAllRepos:
         assert results["org--repo"][0].status == StalenessStatus.NO_TRACKING
 
 
+class TestMarkdownReport:
+    def test_generates_markdown_with_frontmatter(self):
+        from scripts.staleness import generate_staleness_report, NoteReport, StalenessStatus
+        reports = [
+            NoteReport("notes/auth/index.md", StalenessStatus.STALE, ["src/auth.py"], "abc1234", "1 file changed"),
+            NoteReport("notes/api/index.md", StalenessStatus.FRESH, [], "def5678", "0 files changed"),
+        ]
+        output = generate_staleness_report(reports)
+        assert output.startswith("---")
+        assert "staleness_check" in output
+        assert "STALE" in output
+        assert "FRESH" in output
+        assert "auth/index.md" in output
+
+    def test_markdown_report_dataview_compatible(self):
+        from scripts.staleness import generate_staleness_report, NoteReport, StalenessStatus
+        reports = [
+            NoteReport("notes/overview.md", StalenessStatus.NO_TRACKING, [], None, "no tracking"),
+        ]
+        output = generate_staleness_report(reports)
+        assert "| Note |" in output
+        assert "NO_TRACKING" in output
+
+    def test_write_staleness_report_creates_file(self, tmp_path):
+        from scripts.staleness import write_staleness_report, NoteReport, StalenessStatus
+        reports = [
+            NoteReport("notes/test.md", StalenessStatus.FRESH, [], "abc", "ok"),
+        ]
+        result = write_staleness_report(tmp_path, reports)
+        assert result.exists()
+        assert result == tmp_path / "meta" / "staleness-report.md"
+        content = result.read_text()
+        assert "FRESH" in content
+
+    def test_changed_files_truncated_at_5(self):
+        from scripts.staleness import generate_staleness_report, NoteReport, StalenessStatus
+        reports = [
+            NoteReport("notes/big.md", StalenessStatus.STALE,
+                       ["a.py", "b.py", "c.py", "d.py", "e.py", "f.py", "g.py"],
+                       "abc", "7 files"),
+        ]
+        output = generate_staleness_report(reports)
+        assert "+2 more" in output
+
+
+class TestFindValidCloneFromList:
+    def test_returns_none_for_empty_list(self):
+        from scripts.staleness import _find_valid_clone_from_list
+        result = _find_valid_clone_from_list([], "some-repo")
+        assert result is None
+
+    def test_returns_none_for_nonexistent_paths(self):
+        from scripts.staleness import _find_valid_clone_from_list
+        result = _find_valid_clone_from_list(["/nonexistent/path"], "some-repo")
+        assert result is None
+
+
 class TestFormatReport:
     def test_format_mixed_report(self):
         reports = [

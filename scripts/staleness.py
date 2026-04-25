@@ -257,6 +257,82 @@ def _find_valid_clone(repo_paths_file: Path, expected_repo_id: str) -> Optional[
     return first_valid
 
 
+def generate_staleness_report(reports: list[NoteReport]) -> str:
+    """Generate a Dataview-compatible markdown report with YAML frontmatter."""
+    from datetime import date
+    today = date.today().isoformat()
+    lines = [
+        "---",
+        f"staleness_check: {today}",
+        f"total_notes: {len(reports)}",
+        f"stale_count: {sum(1 for r in reports if r.status == StalenessStatus.STALE)}",
+        f"fresh_count: {sum(1 for r in reports if r.status == StalenessStatus.FRESH)}",
+        "---",
+        "# Staleness Report",
+        "",
+        "| Note | Status | Changed Files | Commit |",
+        "|------|--------|---------------|--------|",
+    ]
+    for r in reports:
+        note_name = Path(r.note_path).as_posix()
+        changed = ", ".join(r.changed_files[:5])
+        if len(r.changed_files) > 5:
+            changed += f" (+{len(r.changed_files) - 5} more)"
+        commit = r.commit or "—"
+        lines.append(f"| {note_name} | {r.status.value} | {changed} | {commit} |")
+    return "\n".join(lines) + "\n"
+
+
+def write_staleness_report(vault_dir: Path, reports: list[NoteReport]) -> Path:
+    """Write a staleness report to vault_dir/meta/staleness-report.md."""
+    meta_dir = vault_dir / "meta"
+    meta_dir.mkdir(parents=True, exist_ok=True)
+    report_path = meta_dir / "staleness-report.md"
+    report_path.write_text(generate_staleness_report(reports), encoding="utf-8")
+    return report_path
+
+
+def _find_valid_clone_from_list(clone_paths: list[str], expected_repo_id: str) -> Optional[Path]:
+    """Given a list of clone path strings, return the first valid one matching expected_repo_id."""
+    from scripts.repo_id import get_repo_id
+    for path_str in clone_paths:
+        clone_path = Path(path_str)
+        if not clone_path.is_dir() or not (clone_path / ".git").exists():
+            continue
+        try:
+            if get_repo_id(str(clone_path)) == expected_repo_id:
+                return clone_path
+        except Exception:
+            continue
+    return None
+
+
+def check_all_vaults(vaults_base: Path) -> dict[str, list[NoteReport]]:
+    """Check staleness for all vaults in the given base directory."""
+    from scripts.vault import read_vault_config
+    results: dict[str, list[NoteReport]] = {}
+    if not vaults_base.is_dir():
+        return results
+    for vault_dir in sorted(vaults_base.iterdir()):
+        if not vault_dir.is_dir() or vault_dir.name.startswith("."):
+            continue
+        config = read_vault_config(vault_dir)
+        if config is None:
+            continue
+        repo_id = config.get("repo_id", vault_dir.name)
+        clone_paths = config.get("clone_paths", [])
+        valid_clone = _find_valid_clone_from_list(clone_paths, repo_id)
+        if valid_clone is None:
+            print(f"WARNING: {repo_id} — no valid clone path found, skipping")
+            results[repo_id] = []
+            continue
+        notes_dir = vault_dir / "notes"
+        reports = check_all_notes(notes_dir, valid_clone)
+        write_staleness_report(vault_dir, reports)
+        results[repo_id] = reports
+    return results
+
+
 def format_report(reports: list[NoteReport]) -> str:
     """Format a list of NoteReports as a human-readable string."""
     lines: list[str] = []
@@ -275,11 +351,10 @@ def format_report(reports: list[NoteReport]) -> str:
 
 def run(args) -> int:
     try:
-        from scripts.repo_id import get_repo_dir, get_notes_dir
+        from scripts.vault import VAULTS_BASE
 
         if getattr(args, "all_repos", False):
-            repo_notes_root = Path.home() / ".claude" / "repo_notes"
-            results = check_all_repos(repo_notes_root)
+            results = check_all_vaults(VAULTS_BASE)
             for repo_id, reports in results.items():
                 print(f"\n=== {repo_id} ===")
                 print(format_report(reports))
@@ -287,26 +362,28 @@ def run(args) -> int:
 
         explicit_id = getattr(args, "repo_id", None)
         if explicit_id:
-            repo_dir = Path.home() / ".claude" / "repo_notes" / explicit_id
-            notes_dir = repo_dir / "notes"
+            from scripts.vault import get_vault_dir
+            vault_dir = get_vault_dir(explicit_id)
+            notes_dir = vault_dir / "notes"
         else:
-            repo_dir = get_repo_dir()
+            from scripts.repo_id import get_repo_dir, get_notes_dir
+            vault_dir = get_repo_dir()
             notes_dir = get_notes_dir()
 
-        if not getattr(args, "no_cache", False) and is_cache_valid(repo_dir):
-            cached = load_cache(repo_dir)
+        if not getattr(args, "no_cache", False) and is_cache_valid(vault_dir):
+            cached = load_cache(vault_dir)
             if cached:
                 print("(cached)")
                 for r in cached:
                     print(f"  {r['status']}: {Path(r['note_path']).name}")
                 return 0
 
-        # Find a valid clone path
         from scripts.repo_id import _resolve_cwd
         repo_root = Path(_resolve_cwd())
 
         reports = check_all_notes(notes_dir, repo_root)
-        save_cache(repo_dir, reports)
+        save_cache(vault_dir, reports)
+        write_staleness_report(vault_dir, reports)
 
         if getattr(args, "json", False):
             print(json.dumps([r.to_dict() for r in reports], indent=2))
