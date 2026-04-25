@@ -16,9 +16,11 @@ import sys
 import textwrap
 from pathlib import Path
 
+from scripts.vault import VAULTS_BASE, read_vault_config
+
 REPO_NOTES_BASE = Path.home() / ".claude" / "repo_notes"
-LOCK_FILE = REPO_NOTES_BASE / ".cron.lock"
-LOG_FILE = REPO_NOTES_BASE / "cron.log"
+LOCK_FILE = VAULTS_BASE / ".cron.lock"
+LOG_FILE = VAULTS_BASE / "cron.log"
 SCRIPTS_DIR = Path.home() / ".claude" / "skills" / "codebase-notes" / "scripts"
 SKILL_MD = Path.home() / ".claude" / "skills" / "codebase-notes" / "SKILL.md"
 PLIST_LABEL = "com.codebase-notes.auto-update"
@@ -239,7 +241,8 @@ def build_update_prompt(stale_entries: list[dict], repo_id: str) -> str:
     Returns:
         Prompt string for claude -p
     """
-    notes_dir = REPO_NOTES_BASE / repo_id / "notes"
+    from scripts.vault import get_vault_dir
+    notes_dir = get_vault_dir(repo_id) / "notes"
     lines = [
         f"You are updating codebase notes for repo '{repo_id}'.",
         f"Notes are at: {notes_dir}",
@@ -373,6 +376,48 @@ def get_all_stale_repos() -> list[dict]:
     return stale_repos
 
 
+def get_all_stale_vaults(vaults_base: Path | None = None) -> list[dict]:
+    """Scan all vaults and return staleness info."""
+    from scripts.staleness import check_all_notes, StalenessStatus, _find_valid_clone_from_list
+
+    base = vaults_base or VAULTS_BASE
+    stale_repos = []
+    if not base.is_dir():
+        return stale_repos
+
+    for vault_dir in sorted(base.iterdir()):
+        if not vault_dir.is_dir() or vault_dir.name.startswith("."):
+            continue
+        config = read_vault_config(vault_dir)
+        if config is None:
+            continue
+        repo_id = config.get("repo_id", vault_dir.name)
+        clone_paths = config.get("clone_paths", [])
+        clone_path = _find_valid_clone_from_list(clone_paths, repo_id)
+        if clone_path is None:
+            log_message(f"{repo_id}: skipped — no valid clone path")
+            continue
+        notes_dir = vault_dir / "notes"
+        reports = check_all_notes(notes_dir, clone_path)
+        stale_entries = []
+        for r in reports:
+            if r.status == StalenessStatus.STALE:
+                stale_entries.append({
+                    "note": r.note_path,
+                    "changed_files": r.changed_files,
+                    "files_changed": len(r.changed_files),
+                })
+        if stale_entries:
+            total_changed = sum(e["files_changed"] for e in stale_entries)
+            stale_repos.append({
+                "repo_id": repo_id,
+                "total_changed_files": total_changed,
+                "stale_notes": stale_entries,
+                "clone_path": str(clone_path),
+            })
+    return stale_repos
+
+
 def auto_update_all_repos() -> None:
     """Main entry point for cron-triggered auto-update of all repos.
 
@@ -385,7 +430,7 @@ def auto_update_all_repos() -> None:
 
     try:
         log_message("Auto-update started")
-        stale_repos = get_all_stale_repos()
+        stale_repos = get_all_stale_vaults()
 
         if not stale_repos:
             log_message("No stale repos found")

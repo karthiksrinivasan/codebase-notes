@@ -291,7 +291,7 @@ class TestAutoUpdate:
         with patch("scripts.cron.LOCK_FILE", lock_path), \
              patch("scripts.cron.LOG_FILE", log_path), \
              patch("scripts.cron.REPO_NOTES_BASE", tmp_path), \
-             patch("scripts.cron.get_all_stale_repos", return_value=[]):
+             patch("scripts.cron.get_all_stale_vaults", return_value=[]):
             auto_update_all_repos()
 
         assert not lock_path.exists()  # Lock released
@@ -307,7 +307,7 @@ class TestAutoUpdate:
         with patch("scripts.cron.LOCK_FILE", lock_path), \
              patch("scripts.cron.LOG_FILE", log_path), \
              patch("scripts.cron.REPO_NOTES_BASE", tmp_path), \
-             patch("scripts.cron.get_all_stale_repos") as mock_stale:
+             patch("scripts.cron.get_all_stale_vaults") as mock_stale:
             auto_update_all_repos()
 
         mock_stale.assert_not_called()  # Should have bailed before checking staleness
@@ -388,3 +388,34 @@ class TestCronCLI:
             handle_cron(install=False, uninstall=True, interval=None)
 
         mock_uninstall.assert_called_once()
+
+
+class TestGetAllStaleVaults:
+    """Test vault-based discovery of stale repos."""
+
+    def test_discovers_vaults_with_config(self, tmp_path, monkeypatch):
+        from scripts import cron
+        monkeypatch.setattr(cron, "VAULTS_BASE", tmp_path)
+
+        vault = tmp_path / "my-repo"
+        vault.mkdir()
+        (vault / "notes").mkdir()
+        config = {"repo_id": "org--my-repo", "clone_paths": [], "version": 3}
+        import json
+        (vault / ".vault-config.json").write_text(json.dumps(config))
+
+        result = cron.get_all_stale_vaults(tmp_path)
+        assert isinstance(result, list)
+
+    def test_skips_dirs_without_config(self, tmp_path, monkeypatch):
+        from scripts import cron
+        monkeypatch.setattr(cron, "VAULTS_BASE", tmp_path)
+
+        (tmp_path / "no-config-dir").mkdir()
+        result = cron.get_all_stale_vaults(tmp_path)
+        assert result == []
+
+    def test_returns_empty_for_nonexistent_dir(self, tmp_path):
+        from scripts import cron
+        result = cron.get_all_stale_vaults(tmp_path / "nonexistent")
+        assert result == []
