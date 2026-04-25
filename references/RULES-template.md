@@ -9,7 +9,7 @@ Notes are stored centrally at `~/.claude/repo_notes/<repo_id>/notes/`.
 - **Hierarchical folders** — each topic gets a folder with `index.md` + children. Nest deeper as subtopics are explored.
 - **`00-overview.md`** is the root. It links to all top-level topic folders and tracks exploration status.
 - **`index.md`** in each folder serves as the topic overview and links to all children.
-- **Numbering**: folders use `NN-topic-name/`, files use `NN-subtopic.md` (01, 02, 03...).
+- **Naming**: folders use `topic-name/`, files use `subtopic.md` (no numeric prefix). Use the optional `order:` frontmatter field if explicit ordering is needed.
 - **Centralized storage**: all notes live under `~/.claude/repo_notes/<repo_id>/notes/`. Do not store notes inside the repository itself.
 
 - **Research directory**: `research/` holds notes on external resources — papers, articles, blog posts, competitive analysis. Organized by topic and sub-topic, separate from code exploration notes.
@@ -20,48 +20,75 @@ Example tree:
 ~/.claude/repo_notes/<repo_id>/
   notes/
     00-overview.md
-    01-auth/
+    auth/
       index.md
-      01-oauth-flow.md
-      02-session-management.md
-    02-data-pipeline/
+      oauth-flow.md
+      session-management.md
+    data-pipeline/
       index.md
-      01-ingestion.md
-      02-transformations.md
+      ingestion.md
+      transformations.md
   research/
     index.md
-    01-topic-name/
+    topic-name/
       index.md
-      01-paper-or-article.md
-      02-paper-or-article.md
-    02-another-topic/
+      paper-or-article.md
+      another-paper.md
+    another-topic/
       index.md
-      01-sub-group/
+      sub-group/
         index.md
-        01-paper.md
+        paper.md
   commits/
   projects/
 ```
 
-## Navigation
+## Cross-References and Navigation
 
-Every note must have a navigation bar at the top:
+Use **wikilinks** for all cross-references between notes. Obsidian resolves these automatically and builds the graph view and backlinks panel — no manual navigation bars needed.
 
 ```markdown
-> **Navigation:** Up: [Parent](../index.md) | Prev: [Sibling](./01-prev.md) | Next: [Sibling](./03-next.md)
+[[index|Parent Topic]]
+[[oauth-flow|OAuth Flow]]
+[[session-management]]
 ```
 
-- **Up** — always points to parent `index.md` (or `../00-overview.md` for top-level folders)
-- **Prev/Next** — link to sibling notes for linear reading within a folder
-- **Sub-topics** (on index.md only) — links to children when they exist
-- All links are **relative paths**, never absolute
-- Navigation bars are rebuilt automatically:
+- Use `[[target-file|Display Label]]` when the file name differs from the desired label
+- Use `[[target-file]]` when the file name is the label
+- Obsidian's backlinks panel and graph view replace manual navigation bars — do not add `> **Navigation:**` or `> **Sub-topics:**` blockquotes
 
-```bash
-cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts nav
+## Frontmatter
+
+Every note should include YAML frontmatter with at minimum:
+
+```yaml
+---
+tags:
+  - auth
+  - jwt
+aliases:
+  - JWT Auth
+  - Token Authentication
+git_tracked_paths:
+  - path: src/auth/
+    commit: a1b2c3d
+last_updated: 2026-03-18
+---
 ```
 
-Run this after adding, removing, or renaming any note.
+- **`tags:`** — topic tags for Obsidian tag search and filtering
+- **`aliases:`** — alternate names Obsidian uses for wikilink resolution
+- **`git_tracked_paths:`** — links the note to the source code it documents (see Git Freshness Tracking)
+- **`order:`** — optional integer for explicit ordering within a folder (e.g., `order: 2`)
+
+Use **Dataview queries** for dynamic tables that aggregate data across notes:
+
+````markdown
+```dataview
+TABLE last_updated, tags FROM "notes/auth"
+SORT last_updated DESC
+```
+````
 
 ## Capture Matrix
 
@@ -180,8 +207,6 @@ The bad example is a field list. It says nothing about invariants, transitions, 
 Most notes benefit from combining several lenses. Here is an example note that uses four capture types together:
 
 ```markdown
-> **Navigation:** Up: [Data Pipeline](../index.md) | Prev: [Ingestion](./01-ingestion.md) | Next: [Output](./03-output.md)
-
 # Transformation Engine
 
 The transformation engine converts raw event payloads into normalized records
@@ -319,9 +344,10 @@ Notes should include Excalidraw diagrams where visual representation adds clarit
 
 ### File Format
 
-- Store `.excalidraw` JSON files alongside the note they belong to
-- Naming: `<note-number>-<topic>-<diagram-type>.excalidraw` (e.g., `01-auth-architecture.excalidraw`, `01-auth-dataflow.excalidraw`)
-- Embed in markdown as: `![Description](./filename.png)` — the renderer outputs `.png` (not `.excalidraw.png`)
+- Store `.excalidraw` files alongside the note they belong to
+- Naming: `<topic>-<diagram-type>.excalidraw` (e.g., `auth-architecture.excalidraw`, `auth-dataflow.excalidraw`)
+- Embed in markdown using wikilink syntax: `![[auth-architecture.excalidraw]]`
+- The Obsidian Excalidraw plugin renders `.excalidraw` files natively — no PNG export or render script needed
 - Multiple diagrams per note are encouraged when covering distinct concepts
 
 ### Style Rules
@@ -333,24 +359,14 @@ Notes should include Excalidraw diagrams where visual representation adds clarit
 - Hero element (most important component) gets the most whitespace
 - Label arrows with what travels along them (protocol, data format, trigger)
 
-### Rendering
-
-Render diagrams to PNG:
-
-```bash
-cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts render
-```
-
-After rendering, view the PNG to verify correctness. Fix and re-render as needed.
-
-Sub-agents may lack bash permissions. In that case, the parent session renders centrally after sub-agents create the `.excalidraw` JSON files.
-
 ## Git Freshness Tracking
 
 Every note MUST include YAML frontmatter linking it to the source code it documents:
 
 ```yaml
 ---
+tags:
+  - auth
 git_tracked_paths:
   - path: src/auth/
     commit: a1b2c3d
@@ -383,26 +399,14 @@ When updating a note after source code changes:
 2. Update the note content to reflect the changes
 3. Update the `commit` hash to the current HEAD for each tracked path
 4. Update the `last_updated` date
-5. Re-render any affected diagrams
+5. Update any affected diagrams
 
 ## Maintenance
 
 - **Update overview**: when exploring a new topic, update `00-overview.md` to link the new folder
-- **Update parent links**: when adding a child note, update the parent `index.md` sub-topics list
+- **Update parent links**: when adding a child note, update the parent `index.md` using wikilinks
 - **Prefer updates over new notes**: if a note already covers the topic, update it rather than creating a duplicate
 - **Delete stale notes**: when information becomes obsolete, remove the note rather than leaving it to mislead
-- **Rebuild navigation** after adding, removing, or renaming notes:
-
-```bash
-cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts nav
-```
-
-- **Re-render diagrams** after modifying any `.excalidraw` file:
-
-```bash
-cd ~/.claude/skills/codebase-notes/scripts && uv run python -m scripts render
-```
-
 - **Check freshness** periodically to catch notes that have drifted from the source:
 
 ```bash
@@ -418,19 +422,19 @@ Research notes capture knowledge from external resources — papers, articles, b
 ```
 research/
 ├── index.md                        # Research overview — all topics
-├── 01-{broad-topic}/
+├── {broad-topic}/
 │   ├── index.md                    # Topic overview + paper index table
-│   ├── 01-{paper-or-article}.md    # Individual paper/article note
-│   ├── 02-{paper-or-article}.md
-│   └── 01-{sub-group}/            # Optional sub-grouping for large topics
+│   ├── {paper-or-article}.md       # Individual paper/article note
+│   ├── {another-paper}.md
+│   └── {sub-group}/               # Optional sub-grouping for large topics
 │       ├── index.md
-│       └── 01-{paper}.md
+│       └── {paper}.md
 ```
 
 ### Grouping Principles
 
-- **Top-level folders**: Broad research domains (e.g., `01-autonomous-labs`, `02-ml-architectures`)
-- **Sub-groups**: When a topic has >5 papers, split by theme (e.g., `01-hardware-automation/`, `02-software-orchestration/`)
+- **Top-level folders**: Broad research domains (e.g., `autonomous-labs/`, `ml-architectures/`)
+- **Sub-groups**: When a topic has >5 papers, split by theme (e.g., `hardware-automation/`, `software-orchestration/`)
 - **Individual notes**: One per paper, article, or resource
 
 ### Research Paper Template
@@ -438,6 +442,11 @@ research/
 ```yaml
 ---
 type: research-paper
+tags:
+  - research
+  - ml
+aliases:
+  - Paper Short Title
 source_url: https://...
 relevance: foundational|competitive|adjacent|overview
 date_added: YYYY-MM-DD
@@ -462,9 +471,11 @@ Required sections:
 
 Each topic's `index.md` should have:
 - `type: research-overview` in frontmatter
+- `tags:` and `aliases:` for Obsidian discoverability
 - Overview paragraph
 - Paper/Article Index table (columns: #, Title, Year, Theme, Relevance)
 - Key cross-cutting insights
+- Optional Dataview query to list all notes in the folder automatically
 
 ### What Makes Good Research Notes
 
