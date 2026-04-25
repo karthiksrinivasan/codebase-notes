@@ -87,7 +87,7 @@ class TestCountDir:
 class TestCollectStats:
     def test_collects_all_directories(self, repo_dir):
         stats = collect_stats(repo_dir)
-        assert set(stats.keys()) == {"notes", "research", "commits", "projects"}
+        assert set(stats.keys()) == {"notes", "research", "commits", "projects", "code-reviews"}
 
     def test_notes_has_content(self, repo_dir):
         stats = collect_stats(repo_dir)
@@ -103,6 +103,15 @@ class TestCollectStats:
         assert stats["projects"]["files"] == 1
         assert stats["projects"]["sections"] == 1
 
+    def test_collect_stats_includes_code_reviews(self, tmp_path):
+        (tmp_path / "code-reviews").mkdir()
+        cr_dir = tmp_path / "code-reviews" / "pr-42"
+        cr_dir.mkdir()
+        (cr_dir / "review.md").write_text("# Review\n\nSome review content here.")
+        stats = collect_stats(tmp_path)
+        assert "code-reviews" in stats
+        assert stats["code-reviews"]["files"] == 1
+
 
 class TestFormatStats:
     def test_contains_header_and_totals(self, repo_dir):
@@ -114,13 +123,14 @@ class TestFormatStats:
         assert "research" in output
         assert "commits" in output
         assert "projects" in output
+        assert "code-reviews" in output
 
     def test_table_alignment(self, repo_dir):
         stats = collect_stats(repo_dir)
         output = format_stats(stats, "org--repo")
         lines = output.strip().split("\n")
-        # Header + separator + 4 rows + separator + total = 8 lines (+ title + === + blank)
-        assert len(lines) >= 8
+        # Header + separator + 5 rows + separator + total = 9 lines (+ title + === + blank)
+        assert len(lines) >= 9
 
 
 class TestFormatJson:
@@ -133,9 +143,10 @@ class TestFormatJson:
         assert "research" in data
         assert "commits" in data
         assert "projects" in data
+        assert "code-reviews" in data
 
     def test_json_has_all_fields(self, repo_dir):
         stats = collect_stats(repo_dir)
         data = json.loads(format_json(stats, "org--repo"))
-        for key in ("notes", "research", "commits", "projects"):
+        for key in ("notes", "research", "commits", "projects", "code-reviews"):
             assert set(data[key].keys()) == {"sections", "files", "lines", "words"}

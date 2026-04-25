@@ -34,12 +34,13 @@ def _count_dir(base: Path) -> dict:
 
 
 def collect_stats(repo_dir: Path) -> dict:
-    """Collect stats for all four directories under a repo."""
+    """Collect stats for all directories under a repo."""
     dirs = {
         "notes": repo_dir / "notes",
         "research": repo_dir / "research",
         "commits": repo_dir / "commits",
         "projects": repo_dir / "projects",
+        "code-reviews": repo_dir / "code-reviews",
     }
     result = {}
     for name, path in dirs.items():
@@ -57,7 +58,7 @@ def format_stats(stats: dict, repo_id: str) -> str:
     lines.append(f"{'-'*12} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
 
     totals = {"sections": 0, "files": 0, "lines": 0, "words": 0}
-    for name in ("notes", "research", "commits", "projects"):
+    for name in ("notes", "research", "commits", "projects", "code-reviews"):
         s = stats[name]
         lines.append(f"{name:<12} {s['sections']:>8} {s['files']:>8} {s['lines']:>8} {s['words']:>8}")
         for k in totals:
