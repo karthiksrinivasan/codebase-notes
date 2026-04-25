@@ -3,38 +3,29 @@ set -euo pipefail
 
 EVENT="${1:-}"
 VAULTS_DIR="$HOME/vaults"
+ACTIVE_VAULT_FILE="$VAULTS_DIR/.active-vault"
 
-if [ -z "$EVENT" ] || [ "$EVENT" != "post-tool-use" ]; then
+if [ -z "$EVENT" ] || [ "$EVENT" != "stop" ]; then
   exit 0
 fi
 
-# Read stdin to get the file path from the tool use
-INPUT=$(cat)
-FILE_PATH=$(echo "$INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    print(data.get('tool_input', {}).get('file_path', ''))
-except:
-    pass
-" 2>/dev/null || true)
-
-if [ -z "$FILE_PATH" ]; then
+# Read active vault path
+if [ ! -f "$ACTIVE_VAULT_FILE" ]; then
   exit 0
 fi
 
-# Check if the file is inside a vault
-if [[ "$FILE_PATH" != "$VAULTS_DIR/"* ]]; then
-  exit 0
-fi
+VAULT_DIR=$(cat "$ACTIVE_VAULT_FILE" 2>/dev/null | tr -d '[:space:]')
 
-# Extract vault directory (first component under ~/vaults/)
-VAULT_DIR=$(echo "$FILE_PATH" | sed -E "s|^($VAULTS_DIR/[^/]+)/.*|\1|")
-
-if [ ! -d "$VAULT_DIR/.git" ]; then
+if [ -z "$VAULT_DIR" ] || [ ! -d "$VAULT_DIR/.git" ]; then
   exit 0
 fi
 
 cd "$VAULT_DIR"
+
+# Only commit if there are changes
+if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+  exit 0
+fi
+
 git add -A 2>/dev/null || true
-git commit -m "auto: $(date -u +%Y-%m-%dT%H:%M:%SZ)" --no-verify 2>/dev/null || true
+git commit -m "session: $(date -u +%Y-%m-%dT%H:%M:%SZ)" --no-verify 2>/dev/null || true

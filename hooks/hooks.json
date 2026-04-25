@@ -12,18 +12,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/vault-git-sync\" post-tool-use",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "matcher": "",
@@ -31,6 +19,11 @@
           {
             "type": "prompt",
             "prompt": "Update wiki/hot.md in the active vault with a brief summary of what was accomplished this session. Keep it under 500 words. Focus on decisions made, findings, and next steps."
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/vault-git-sync\" stop",
+            "timeout": 15
           }
         ]
       }
