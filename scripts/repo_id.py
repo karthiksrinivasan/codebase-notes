@@ -85,15 +85,17 @@ def get_repo_id(cwd: str | None = None) -> str:
 
 
 def get_notes_dir(cwd: str | None = None) -> Path:
-    """Return the centralized notes directory for the repo at cwd."""
+    """Return the notes directory — vault-based at ~/vaults/<slug>/notes/."""
+    from scripts.vault import get_vault_dir
     repo_id = resolve_repo_id(cwd=cwd)
-    return Path.home() / ".claude" / "repo_notes" / repo_id / "notes"
+    return get_vault_dir(repo_id) / "notes"
 
 
 def get_repo_dir(cwd: str | None = None) -> Path:
-    """Return the centralized repo directory for the repo at cwd."""
+    """Return the vault directory for the repo at cwd."""
+    from scripts.vault import get_vault_dir
     repo_id = resolve_repo_id(cwd=cwd)
-    return Path.home() / ".claude" / "repo_notes" / repo_id
+    return get_vault_dir(repo_id)
 
 
 def run(args) -> int:

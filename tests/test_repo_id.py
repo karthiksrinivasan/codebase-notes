@@ -69,3 +69,19 @@ class TestEdgeCases:
     def test_ssh_with_port(self):
         with patch("subprocess.run", return_value=_mock_git_remote("ssh://git@github.com:22/org/repo.git")):
             assert resolve_repo_id() == "org--repo"
+
+
+class TestVaultAwarePaths:
+    def test_get_repo_dir_returns_vault_path(self, monkeypatch):
+        from scripts.repo_id import get_repo_dir
+        monkeypatch.setattr("scripts.repo_id.resolve_repo_id", lambda cwd=None: "org--my-repo")
+        result = get_repo_dir()
+        assert "vaults" in str(result)
+        assert "org-my-repo" in str(result)
+
+    def test_get_notes_dir_returns_vault_notes_path(self, monkeypatch):
+        from scripts.repo_id import get_notes_dir
+        monkeypatch.setattr("scripts.repo_id.resolve_repo_id", lambda cwd=None: "org--my-repo")
+        result = get_notes_dir()
+        assert str(result).endswith("notes")
+        assert "vaults" in str(result)
