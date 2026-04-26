@@ -75,13 +75,13 @@ Save the `.excalidraw` file alongside the note in the same directory.
 Add to the note's markdown:
 
 ```markdown
-![[diagram-name.excalidraw]]
+![[diagram-name.png]]
 
 Text description of what the diagram shows — how components connect, data flow,
 key relationships. This must stand alone without the image.
 ```
 
-Obsidian renders `.excalidraw` files natively via the Excalidraw plugin. No render script or PNG export needed.
+The Excalidraw plugin auto-exports a PNG alongside the `.excalidraw` file. Embed the PNG with `![[name.png]]` — no render script needed.
 
 Every diagram MUST have a text description below it.
 

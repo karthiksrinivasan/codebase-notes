@@ -272,7 +272,7 @@ Every brainstorm session that creates or updates topic notes MUST produce at lea
 | Integration or API design | Data flow diagram showing connections and protocols |
 | Project roadmap or phases | Timeline diagram with milestones |
 
-After creating `.excalidraw` files, embed them in the notes with `![[filename.excalidraw]]` — Obsidian renders them natively. Always include a text description below each diagram.
+After creating `.excalidraw` files, embed them in the notes with `![[filename.png]]` — the Excalidraw plugin auto-exports PNGs alongside `.excalidraw` files. Always include a text description below each diagram.
 
 ---
 
@@ -407,4 +407,4 @@ Content from `--url` during brainstorm goes into the project's `research/` subdi
 
 ## Script Compatibility
 
-The `render` and `nav` scripts are not used for project notes. Project notes at `projects/` are **independent** — navigation is handled by Obsidian backlinks and wikilinks, and Excalidraw files render natively without a render script.
+The `render` and `nav` scripts are not used for project notes. Project notes at `projects/` are **independent** — navigation is handled by Obsidian backlinks and wikilinks, and Excalidraw files are embedded as auto-exported PNGs (`![[name.png]]`) without a render script.

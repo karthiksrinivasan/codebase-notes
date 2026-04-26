@@ -346,8 +346,8 @@ Notes should include Excalidraw diagrams where visual representation adds clarit
 
 - Store `.excalidraw` files alongside the note they belong to
 - Naming: `<topic>-<diagram-type>.excalidraw` (e.g., `auth-architecture.excalidraw`, `auth-dataflow.excalidraw`)
-- Embed in markdown using wikilink syntax: `![[auth-architecture.excalidraw]]`
-- The Obsidian Excalidraw plugin renders `.excalidraw` files natively — no PNG export or render script needed
+- Embed in markdown using wikilink syntax: `![[auth-architecture.png]]`
+- The Excalidraw plugin auto-exports PNGs alongside `.excalidraw` files; embed the PNG — no manual render script needed
 - Multiple diagrams per note are encouraged when covering distinct concepts
 
 ### Style Rules

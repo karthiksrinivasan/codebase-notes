@@ -41,9 +41,9 @@ class TestConvertRelativeLinkToWikilink:
         result = convert_relative_link_to_wikilink("Data", "../../03-data/index.md", {})
         assert result == "[[data/index|Data]]"
 
-    def test_png_to_excalidraw(self):
+    def test_png_embed(self):
         result = convert_relative_link_to_wikilink("diagram", "./01-auth.png", {})
-        assert result == "![[auth.excalidraw]]"
+        assert result == "![[auth.png]]"
 
     def test_external_url_unchanged(self):
         result = convert_relative_link_to_wikilink("Google", "https://google.com", {})
@@ -99,7 +99,7 @@ class TestConvertLinksInContent:
     def test_converts_image_links(self):
         content = "![arch](./01-system.png)"
         result = convert_links_in_content(content, {})
-        assert "![[system.excalidraw]]" in result
+        assert "![[system.png]]" in result
 
 
 class TestBuildRenameMap:
@@ -198,8 +198,8 @@ class TestMigrateToVault:
 
         oauth = (vault / "notes" / "auth" / "oauth.md").read_text()
         assert "[[overview" in oauth
-        assert "![[oauth.excalidraw]]" in oauth
-        assert ".png" not in oauth
+        assert "![[oauth.png]]" in oauth
+        assert "(./01-oauth.png)" not in oauth  # old relative path gone
 
     def test_strips_nav_bars_in_migrated_files(self, tmp_path, monkeypatch):
         from scripts.migrate import migrate_to_vault

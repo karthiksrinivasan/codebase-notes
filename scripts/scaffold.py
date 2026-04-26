@@ -165,6 +165,14 @@ OBSIDIAN_COMMUNITY_PLUGINS = [
     "templater-obsidian",
 ]
 
+EXCALIDRAW_PLUGIN_CONFIG = {
+    "autoexportPNG": True,
+    "autoexportSVG": False,
+    "width": 1600,
+    "compatibilityMode": True,
+    "loadPropertySuggestions": True,
+}
+
 OBSIDIAN_GRAPH = {
     "colorGroups": [
         {"query": "path:notes", "color": {"a": 1, "h": 212, "s": 100, "l": 50}},
@@ -190,6 +198,7 @@ VAULT_DIRS = [
     "_templates",
     ".obsidian",
     ".obsidian/snippets",
+    ".obsidian/plugins/obsidian-excalidraw-plugin",
 ]
 
 # ---------------------------------------------------------------------------
@@ -273,6 +282,10 @@ def scaffold_vault(
     _write_json(obsidian / "core-plugins.json", OBSIDIAN_CORE_PLUGINS)
     _write_json(obsidian / "community-plugins.json", OBSIDIAN_COMMUNITY_PLUGINS)
     _write_json(obsidian / "graph.json", OBSIDIAN_GRAPH)
+    _write_json(
+        obsidian / "plugins" / "obsidian-excalidraw-plugin" / "data.json",
+        EXCALIDRAW_PLUGIN_CONFIG,
+    )
 
 
 def _write_json(path: Path, data) -> None:

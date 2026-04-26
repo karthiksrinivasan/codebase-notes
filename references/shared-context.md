@@ -18,7 +18,7 @@ When this shared context says `<plugin_root>`, substitute the actual resolved pa
 
 **Notes are a knowledge graph, not a document dump.** Each note is a node. Navigation happens via Obsidian's backlinks and graph view — not manual navigation bars. Use wikilinks (`[[note]]`, `[[note|alias]]`) to cross-reference notes.
 
-**Diagrams argue, text explains.** Every note gets at least one Excalidraw diagram, and every major section within a note that describes relationships or flows gets its own diagram. A note with architecture, data flow, and integration sections needs three diagrams. Text supplements with tables, schemas, and key file references. Never use ASCII art for diagrams — always Excalidraw. Obsidian renders `.excalidraw` files natively via the Excalidraw plugin — no PNG rendering step needed.
+**Diagrams argue, text explains.** Every note gets at least one Excalidraw diagram, and every major section within a note that describes relationships or flows gets its own diagram. A note with architecture, data flow, and integration sections needs three diagrams. Text supplements with tables, schemas, and key file references. Never use ASCII art for diagrams — always Excalidraw. The Excalidraw plugin auto-exports PNGs alongside `.excalidraw` files; embed the PNG with `![[name.png]]`.
 
 **Text must stand alone.** Diagrams enhance but don't replace text. Every architecture section needs enough written description that a reader with broken images still understands the system. A diagram without a text summary below it is incomplete.
 
@@ -252,7 +252,7 @@ One paragraph summary.
 
 ## Architecture / Overview
 
-![[note-name.excalidraw]]
+![[note-name.png]]
 
 Text description of what the diagram shows — how components connect, data flow,
 key relationships. This must stand alone without the image.
@@ -324,10 +324,10 @@ Create a diagram for each of these within a note:
 
 1. Create `.excalidraw` JSON section-by-section (not all at once — large diagrams hit token limits)
 2. Save the JSON file alongside the note with a matching name (e.g., `subtopic-architecture.excalidraw`)
-3. Embed in the note with `![[filename.excalidraw]]` — Obsidian renders it natively via the Excalidraw plugin. No render script, no PNG files.
+3. Embed in the note with `![[filename.png]]` — the Excalidraw plugin auto-exports a PNG alongside the `.excalidraw` file; embed the PNG.
 4. Add a text description below the embed that stands alone without the image.
 
-**No render step required.** Obsidian's Excalidraw plugin renders `.excalidraw` files directly. Just create the JSON and embed it.
+**Auto-export approach.** The Excalidraw plugin auto-exports PNGs alongside `.excalidraw` files. Embed the PNG with `![[name.png]]` — no manual render script needed.
 
 ### Diagram Types
 
@@ -368,7 +368,7 @@ When creating diagrams across multiple notes:
 
 ```
 Launch N sub-agents (one per note group) to create .excalidraw JSON
-After all complete, embed each with ![[filename.excalidraw]] in the relevant notes
+After all complete, embed each with ![[filename.png]] in the relevant notes
 ```
 
 No central render pass needed — Obsidian renders `.excalidraw` files on open.
@@ -429,7 +429,7 @@ For contexts where Dataview is not available (e.g., non-Obsidian readers), maint
 | Storage location | `~/.claude/repo_notes/<repo_id>/notes/` | `~/vaults/<slug>/notes/` |
 | Obsidian integration | None | Full — `.obsidian/` config, Excalidraw plugin, Dataview |
 | Navigation links | Relative markdown links + `nav` script | Obsidian wikilinks, backlinks, graph view |
-| Diagram rendering | `render` script → PNG | Obsidian Excalidraw plugin renders natively |
+| Diagram rendering | `render` script → PNG | Excalidraw plugin auto-exports PNGs; embed with `![[name.png]]` |
 | Context priming | Hook-based `context-index` injection | `wiki/hot.md` read at session start |
 | File naming | `NN-topic.md`, `NN-topic/` prefixes | `topic.md`, `topic/` — no numeric prefixes |
 | Knowledge Map | Manual markdown table | Dataview query |
@@ -466,7 +466,7 @@ The migration:
 3. Copies all `.md` and `.excalidraw` files preserving directory structure
 4. Converts relative markdown links to wikilinks
 5. Removes `NN-` numeric prefixes from filenames and references
-6. Converts `![desc](./file.png)` embeds to `![[file.excalidraw]]` where source exists
+6. Converts `![desc](./file.png)` embeds to `![[file.png]]` where source exists
 7. Removes navigation bar lines (`> **Navigation:**`)
 8. Reports any links that couldn't be auto-converted
 
@@ -495,7 +495,7 @@ Always use Obsidian wikilinks for cross-references between notes:
 [[note-name]]                  # link to note by filename (no extension)
 [[note-name|Display Text]]     # link with alias
 [[folder/note-name]]           # disambiguate when filename not unique
-![[diagram.excalidraw]]        # embed Excalidraw diagram (renders natively)
+![[diagram.png]]               # embed Excalidraw diagram (auto-exported PNG)
 ![[image.png]]                 # embed image
 ```
 
@@ -531,13 +531,13 @@ SORT order ASC
 
 ### Excalidraw Embedding
 
-Obsidian's Excalidraw plugin renders `.excalidraw` files directly in reading view. Just embed them:
+The Excalidraw plugin auto-exports a PNG alongside every `.excalidraw` file. Embed the PNG:
 
 ```markdown
-![[diagram-architecture.excalidraw]]
+![[diagram-architecture.png]]
 ```
 
-The plugin renders the JSON into a visual diagram. No PNG export, no render script, no external tool needed. To create or edit a diagram, write the `.excalidraw` JSON file and Obsidian will display it.
+The plugin auto-exports the PNG when the `.excalidraw` file is saved. Embed the PNG with `![[name.png]]` — no manual render script or external tool needed. To create or edit a diagram, write the `.excalidraw` JSON file and the plugin will auto-export the PNG.
 
 ### wiki/hot.md
 

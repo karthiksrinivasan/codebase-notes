@@ -358,7 +358,7 @@ def convert_relative_link_to_wikilink(
     """Convert a markdown relative link to an Obsidian wikilink.
 
     Returns None for external URLs and anchor links (caller keeps original).
-    For .png files → ``![[stem.excalidraw]]``.
+    For .png files → ``![[stem.png]]`` (Excalidraw plugin auto-exports PNGs).
     For .md files → ``[[target|label]]`` or ``[[target]]`` if label matches stem.
     Strips NN- prefixes from all path components.
     """
@@ -369,9 +369,8 @@ def convert_relative_link_to_wikilink(
     suffix = p.suffix.lower()
 
     if suffix == ".png":
-        # Convert PNG reference to excalidraw embed
         stem = strip_nn_prefix(p.stem)
-        return f"![[{stem}.excalidraw]]"
+        return f"![[{stem}.png]]"
 
     # Build path components, stripping NN- prefixes and skipping . / ..
     parts = list(p.parts)

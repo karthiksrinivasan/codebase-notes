@@ -80,7 +80,7 @@ The migration:
 2. Copies all `.md` and `.excalidraw` files preserving directory structure
 3. Converts relative markdown links to Obsidian wikilinks
 4. Removes `NN-` numeric prefixes from filenames and all internal references
-5. Converts `![desc](./file.png)` image embeds to `![[file.excalidraw]]` where source exists
+5. Converts `![desc](./file.png)` image embeds to `![[file.png]]` where source exists
 6. Removes navigation bar lines (`> **Navigation:**`, `> **Sub-topics:**`)
 7. Creates `wiki/hot.md` with a blank session context template
 8. Reports any links that couldn't be auto-converted (need manual attention)

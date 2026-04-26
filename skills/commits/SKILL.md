@@ -77,7 +77,7 @@ Commit notes MUST include at least one Excalidraw diagram to visualize change pa
 
 For the overall commit summary, create a high-level diagram showing which parts of the codebase were most active and how changes relate to each other.
 
-Build diagrams section-by-section. After creating all `.excalidraw` files, embed them in the relevant commit notes with `![[filename.excalidraw]]` — Obsidian renders them natively. Always include a text description below each diagram that stands alone without the image.
+Build diagrams section-by-section. After creating all `.excalidraw` files, embed them in the relevant commit notes with `![[filename.png]]` — the Excalidraw plugin auto-exports PNGs alongside `.excalidraw` files. Always include a text description below each diagram that stands alone without the image.
 
 ## Step 4: Summarize (Optional)
 

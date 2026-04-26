@@ -64,7 +64,7 @@ For each note being updated:
 3. Update the note in-place — prefer editing over rewriting
 4. Update the `git_tracked_paths` commit hashes in frontmatter
 5. Update `last_updated` date
-6. Check every section for diagram coverage — each section describing relationships or flows MUST have a diagram. Add missing diagrams (embed with `![[filename.excalidraw]]`), update stale ones.
+6. Check every section for diagram coverage — each section describing relationships or flows MUST have a diagram. Add missing diagrams (embed with `![[filename.png]]`), update stale ones.
 7. Ensure cross-references use wikilinks (`[[note-name]]`), not relative markdown links.
 
 ## Step 4: Verify Diagram Coverage

@@ -95,7 +95,7 @@ Every note MUST include at least one diagram. Use the diagram type table from sh
 | Configuration or reference | Hierarchy tree or ecosystem map |
 | Integration between systems | Arrows showing connections, protocols, data formats |
 
-For notes covering multiple concepts, create multiple diagrams (one per concept). Build diagrams section-by-section to avoid token limits. Embed each with `![[filename.excalidraw]]` — Obsidian renders it natively, no PNG step needed. Every diagram MUST have a text description below it that stands alone without the image.
+For notes covering multiple concepts, create multiple diagrams (one per concept). Build diagrams section-by-section to avoid token limits. Embed each with `![[filename.png]]` — the Excalidraw plugin auto-exports PNGs alongside `.excalidraw` files. Every diagram MUST have a text description below it that stands alone without the image.
 
 ## Step 4: Update Overview
 

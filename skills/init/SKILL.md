@@ -10,7 +10,7 @@ allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
 
 - **Notes are the primary context source.** Read notes first; explore code as a fallback.
 - **Notes are a knowledge graph, not a document dump.** Each note is a node; Obsidian provides navigation via backlinks and graph view.
-- **Diagrams argue, text explains.** Every note gets at least one Excalidraw diagram; Obsidian renders `.excalidraw` files natively — no PNG step needed.
+- **Diagrams argue, text explains.** Every note gets at least one Excalidraw diagram; the Excalidraw plugin auto-exports PNGs alongside `.excalidraw` files — embed the PNG with `![[name.png]]`.
 - **Capture what code can't tell you.** Focus on architecture, data flow, and design decisions — not what `git log` would tell you.
 
 ---
@@ -94,7 +94,7 @@ Before writing anything, understand the repo:
 Read the RULES.md that was copied into the notes directory. Then write `notes/overview.md` with:
 
 1. **"What is this?"** — one paragraph describing the repo
-2. **Architecture section** — Excalidraw diagram (`![[overview-architecture.excalidraw]]`) + text description
+2. **Architecture section** — Excalidraw diagram (`![[overview-architecture.png]]`) + text description
 3. **Languages & Build Tools** — what's used and how
 4. **Top-Level Packages** — table of directories, purposes, languages
 5. **Knowledge Map** — Dataview query block + static fallback table of all topics with exploration status

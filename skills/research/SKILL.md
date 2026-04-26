@@ -131,7 +131,7 @@ Every research note MUST include at least one Excalidraw diagram. Research notes
 
 For individual paper/article notes, diagram the paper's technical approach or architecture. For topic index notes with multiple papers, create an overview diagram showing the research landscape — how papers/articles relate to each other and to the project.
 
-Build diagrams section-by-section. After creating all `.excalidraw` files, embed them in the notes with `![[filename.excalidraw]]` — Obsidian renders them natively. Always include a text description below each diagram that stands alone without the image.
+Build diagrams section-by-section. After creating all `.excalidraw` files, embed them in the notes with `![[filename.png]]` — the Excalidraw plugin auto-exports PNGs alongside `.excalidraw` files. Always include a text description below each diagram that stands alone without the image.
 
 ## Step 4: Update Topic Index
 
