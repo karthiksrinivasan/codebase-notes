@@ -436,6 +436,9 @@ def convert_links_in_content(content: str, rename_map: dict[str, str]) -> str:
     return MD_LINK_RE.sub(_replace, content)
 
 
+MIGRATE_DIRS = ["notes", "research", "projects", "commits", "code-reviews"]
+
+
 def migrate_to_vault(
     source_dir: Path,
     repo_id: str,
@@ -444,16 +447,9 @@ def migrate_to_vault(
 ) -> dict:
     """Migrate v2 repo_notes to v3 Obsidian vault.
 
-    Steps:
-      1. Scaffold the vault (creates directories, config, skeletons).
-      2. Build rename map for NN-prefix stripping.
-      3. Copy .md and .excalidraw files (skip .png) with prefix stripping.
-      4. Convert markdown links to wikilinks.
-      5. Strip navigation bars.
-      6. Seed wiki/hot.md from 00-overview.md content if available.
-
     Args:
-        source_dir: Path to v2 notes directory (e.g., ~/.claude/repo_notes/<id>/notes).
+        source_dir: Path to the v2 repo root (e.g., ~/.claude/repo_notes/<id>/).
+                    Contains notes/, research/, projects/, commits/, code-reviews/.
         repo_id: The repository identifier.
         clone_path: Filesystem path to the git clone.
         dry_run: If True, compute and return the plan without writing.
@@ -466,20 +462,25 @@ def migrate_to_vault(
     slug = repo_id_to_slug(repo_id)
     vault_dir = VAULTS_BASE / slug
 
-    rename_map = build_rename_map(source_dir)
-
     files_copied = 0
     files_skipped = 0
 
+    # Collect all source dirs that exist
+    source_subdirs = []
+    for dirname in MIGRATE_DIRS:
+        subdir = source_dir / dirname
+        if subdir.is_dir():
+            source_subdirs.append((dirname, subdir))
+
     if dry_run:
-        # Count what would be copied
-        for root, _dirs, files in os.walk(source_dir):
-            for fname in files:
-                src = Path(root) / fname
-                if src.suffix == ".png":
-                    files_skipped += 1
-                elif src.suffix in COPYABLE_EXTENSIONS:
-                    files_copied += 1
+        for dirname, subdir in source_subdirs:
+            for root, _dirs, files in os.walk(subdir):
+                for fname in files:
+                    src = Path(root) / fname
+                    if src.suffix == ".png":
+                        files_skipped += 1
+                    elif src.suffix in COPYABLE_EXTENSIONS:
+                        files_copied += 1
         return {
             "vault_dir": vault_dir,
             "files_copied": files_copied,
@@ -490,55 +491,55 @@ def migrate_to_vault(
     # 1. Scaffold vault
     scaffold_vault(vault_dir, repo_id, clone_path)
 
-    # 2. Copy files with prefix stripping
+    # 2. Build rename map across all source dirs
+    rename_map: dict[str, str] = {}
+    for dirname, subdir in source_subdirs:
+        rename_map.update(build_rename_map(subdir))
+
+    # 3. Copy files from each source subdir into matching vault subdir
     overview_content = None
-    for root, dirs, files in os.walk(source_dir):
-        rel_root = Path(root).relative_to(source_dir)
+    for dirname, subdir in source_subdirs:
+        for root, dirs, files in os.walk(subdir):
+            rel_root = Path(root).relative_to(subdir)
 
-        # Build destination directory with stripped prefixes
-        dest_parts = []
-        for part in rel_root.parts:
-            dest_parts.append(strip_nn_prefix(part))
-        dest_dir = vault_dir / "notes" / Path(*dest_parts) if dest_parts else vault_dir / "notes"
-        dest_dir.mkdir(parents=True, exist_ok=True)
-
-        for fname in files:
-            src_file = Path(root) / fname
-
-            # Skip .png files
-            if src_file.suffix == ".png":
-                files_skipped += 1
-                continue
-
-            if src_file.suffix not in COPYABLE_EXTENSIONS:
-                continue
-
-            # Strip NN-prefix from filename
-            new_name = strip_nn_prefix(src_file.stem) + src_file.suffix
-            dest_file = dest_dir / new_name
-
-            if src_file.suffix == ".md":
-                content = src_file.read_text(encoding="utf-8")
-
-                # Capture overview content for hot.md seeding
-                if src_file.name == "00-overview.md":
-                    overview_content = content
-
-                # Convert links and strip nav bars
-                content = convert_links_in_content(content, rename_map)
-                content = strip_nav_bars(content)
-
-                dest_file.write_text(content, encoding="utf-8")
+            dest_parts = [strip_nn_prefix(part) for part in rel_root.parts]
+            if dest_parts:
+                dest_dir = vault_dir / dirname / Path(*dest_parts)
             else:
-                shutil.copy2(src_file, dest_file)
+                dest_dir = vault_dir / dirname
+            dest_dir.mkdir(parents=True, exist_ok=True)
 
-            files_copied += 1
+            for fname in files:
+                src_file = Path(root) / fname
 
-    # 3. Seed wiki/hot.md from overview if available
+                if src_file.suffix == ".png":
+                    files_skipped += 1
+                    continue
+
+                if src_file.suffix not in COPYABLE_EXTENSIONS:
+                    continue
+
+                new_name = strip_nn_prefix(src_file.stem) + src_file.suffix
+                dest_file = dest_dir / new_name
+
+                if src_file.suffix == ".md":
+                    content = src_file.read_text(encoding="utf-8")
+
+                    if src_file.name == "00-overview.md":
+                        overview_content = content
+
+                    content = convert_links_in_content(content, rename_map)
+                    content = strip_nav_bars(content)
+                    dest_file.write_text(content, encoding="utf-8")
+                else:
+                    shutil.copy2(src_file, dest_file)
+
+                files_copied += 1
+
+    # 4. Seed wiki/hot.md from overview if available
     if overview_content is not None:
         hot_file = vault_dir / "wiki" / "hot.md"
         hot_file.parent.mkdir(parents=True, exist_ok=True)
-        # Extract the topics / key-files sections from overview for hot.md seeding
         hot_file.write_text(
             f"---\nlast_updated: {__import__('datetime').date.today().isoformat()}\n---\n"
             f"# Hot Topics\n\n"
@@ -577,34 +578,37 @@ def run_migrate_to_vault(args) -> int:
         print(f"Error: {REPO_NOTES_BASE} does not exist", file=sys.stderr)
         return 1
 
-    # Collect repos to migrate
+    # Collect repos to migrate — pass repo root, not notes/ subdir
     repos: list[tuple[str, Path]] = []
     if repo_id_arg:
-        notes_dir = REPO_NOTES_BASE / repo_id_arg / "notes"
-        if not notes_dir.is_dir():
-            print(f"Error: {notes_dir} does not exist", file=sys.stderr)
+        repo_dir = REPO_NOTES_BASE / repo_id_arg
+        if not repo_dir.is_dir():
+            print(f"Error: {repo_dir} does not exist", file=sys.stderr)
             return 1
-        repos.append((repo_id_arg, notes_dir))
+        repos.append((repo_id_arg, repo_dir))
     else:
         for item in sorted(REPO_NOTES_BASE.iterdir()):
-            if not item.is_dir():
+            if not item.is_dir() or item.name.startswith("."):
                 continue
-            notes_dir = item / "notes"
-            if notes_dir.is_dir():
-                repos.append((item.name, notes_dir))
+            repos.append((item.name, item))
 
     if not repos:
         print("No repos found to migrate.")
         return 0
 
-    for repo_id, notes_dir in repos:
-        # Determine clone_path from existing notes structure
-        clone_path = str(notes_dir.parent)
+    for repo_id, repo_dir in repos:
+        # Read clone_path from .repo_paths if available
+        clone_path = str(repo_dir)
+        repo_paths_file = repo_dir / ".repo_paths"
+        if repo_paths_file.is_file():
+            lines = [l.strip() for l in repo_paths_file.read_text().splitlines() if l.strip()]
+            if lines:
+                clone_path = lines[0]
 
         prefix = "[DRY RUN] " if dry_run else ""
         print(f"{prefix}Migrating {repo_id}...")
         result = migrate_to_vault(
-            source_dir=notes_dir,
+            source_dir=repo_dir,
             repo_id=repo_id,
             clone_path=clone_path,
             dry_run=dry_run,

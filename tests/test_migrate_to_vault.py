@@ -112,3 +112,114 @@ class TestBuildRenameMap:
         assert result["01-auth.md"] == "auth.md"
         assert "02-api.md" in result
         assert "index.md" not in result  # no prefix to strip
+
+
+class TestMigrateToVault:
+    def _make_v2_repo(self, tmp_path):
+        """Create a realistic v2 repo_notes structure."""
+        repo = tmp_path / "source"
+        # notes/
+        notes = repo / "notes"
+        notes.mkdir(parents=True)
+        (notes / "00-overview.md").write_text("---\ngit_tracked_paths: []\n---\n# Overview\n")
+        auth = notes / "01-auth"
+        auth.mkdir()
+        (auth / "index.md").write_text("> **Navigation:** Up: [Overview](../00-overview.md)\n\n# Auth\n")
+        (auth / "01-oauth.md").write_text("See [overview](../00-overview.md) and ![diagram](./01-oauth.png)\n")
+        (auth / "01-oauth.excalidraw").write_text("{}")
+        (auth / "01-oauth.png").write_text("fake png")
+        # research/
+        research = repo / "research"
+        research.mkdir()
+        (research / "index.md").write_text("# Research\n")
+        topic = research / "01-ml"
+        topic.mkdir()
+        (topic / "01-transformers.md").write_text("# Transformers\n")
+        # projects/
+        projects = repo / "projects"
+        projects.mkdir()
+        proj = projects / "redesign"
+        proj.mkdir()
+        (proj / "index.md").write_text("# Redesign\n")
+        # commits/
+        commits = repo / "commits"
+        commits.mkdir()
+        author = commits / "john-doe"
+        author.mkdir()
+        (author / "auth.md").write_text("# Commits\n")
+        # code-reviews/
+        cr = repo / "code-reviews"
+        cr.mkdir()
+        pr = cr / "pr-42"
+        pr.mkdir()
+        (pr / "review.md").write_text("# Review\n")
+        (pr / "context.md").write_text("# Context\n")
+        return repo
+
+    def test_migrates_all_directories(self, tmp_path, monkeypatch):
+        from scripts.migrate import migrate_to_vault
+        import scripts.vault
+        monkeypatch.setattr(scripts.vault, "VAULTS_BASE", tmp_path / "vaults")
+
+        source = self._make_v2_repo(tmp_path)
+        from scripts.vault import VAULTS_BASE
+        result = migrate_to_vault(source, "org--repo", "/tmp/clone", dry_run=False)
+        vault = Path(result["vault_dir"])
+
+        # notes migrated with prefix stripping
+        assert (vault / "notes" / "overview.md").is_file()
+        assert (vault / "notes" / "auth" / "index.md").is_file()
+        assert (vault / "notes" / "auth" / "oauth.md").is_file()
+        assert (vault / "notes" / "auth" / "oauth.excalidraw").is_file()
+        assert not (vault / "notes" / "auth" / "oauth.png").exists()  # PNG skipped
+
+        # research migrated
+        assert (vault / "research" / "index.md").is_file()
+        assert (vault / "research" / "ml" / "transformers.md").is_file()
+
+        # projects migrated
+        assert (vault / "projects" / "redesign" / "index.md").is_file()
+
+        # commits migrated
+        assert (vault / "commits" / "john-doe" / "auth.md").is_file()
+
+        # code-reviews migrated
+        assert (vault / "code-reviews" / "pr-42" / "review.md").is_file()
+        assert (vault / "code-reviews" / "pr-42" / "context.md").is_file()
+
+    def test_converts_links_in_migrated_files(self, tmp_path, monkeypatch):
+        from scripts.migrate import migrate_to_vault
+        import scripts.vault
+        monkeypatch.setattr(scripts.vault, "VAULTS_BASE", tmp_path / "vaults")
+
+        source = self._make_v2_repo(tmp_path)
+        result = migrate_to_vault(source, "org--repo", "/tmp/clone")
+        vault = Path(result["vault_dir"])
+
+        oauth = (vault / "notes" / "auth" / "oauth.md").read_text()
+        assert "[[overview" in oauth
+        assert "![[oauth.excalidraw]]" in oauth
+        assert ".png" not in oauth
+
+    def test_strips_nav_bars_in_migrated_files(self, tmp_path, monkeypatch):
+        from scripts.migrate import migrate_to_vault
+        import scripts.vault
+        monkeypatch.setattr(scripts.vault, "VAULTS_BASE", tmp_path / "vaults")
+
+        source = self._make_v2_repo(tmp_path)
+        result = migrate_to_vault(source, "org--repo", "/tmp/clone")
+        vault = Path(result["vault_dir"])
+
+        auth_index = (vault / "notes" / "auth" / "index.md").read_text()
+        assert "> **Navigation:**" not in auth_index
+
+    def test_dry_run_counts_all_directories(self, tmp_path, monkeypatch):
+        from scripts.migrate import migrate_to_vault
+        import scripts.vault
+        monkeypatch.setattr(scripts.vault, "VAULTS_BASE", tmp_path / "vaults")
+
+        source = self._make_v2_repo(tmp_path)
+        result = migrate_to_vault(source, "org--repo", "/tmp/clone", dry_run=True)
+        assert result["dry_run"] is True
+        assert result["files_copied"] >= 8  # all .md + .excalidraw across dirs
+        assert result["files_skipped"] >= 1  # the .png
